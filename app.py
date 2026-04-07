@@ -23,7 +23,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from langchain.retrievers import MultiQueryRetriever
+try:
+    from langchain_classic.retrievers import MultiQueryRetriever
+except ImportError:
+    from langchain.retrievers import MultiQueryRetriever
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
