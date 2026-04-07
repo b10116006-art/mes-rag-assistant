@@ -19,7 +19,7 @@ from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.schema.output_parser import StrOutputParser
@@ -276,7 +276,6 @@ def create_ui():
                 chatbot = gr.Chatbot(
                     height=420,
                     label="FAB Copilot",
-                    avatar_images=(None, "🤖"),
                     type="messages"
                 )
                 with gr.Row():
@@ -297,7 +296,7 @@ def create_ui():
 
                 msg_input.submit(respond, [msg_input, chatbot], [msg_input, chatbot])
                 send_btn.click(respond, [msg_input, chatbot], [msg_input, chatbot])
-                clear_btn.click(lambda: ([], []), outputs=[chatbot, chatbot])
+                clear_btn.click(lambda: [], outputs=[chatbot])
 
             # ── Tab 2：工程分析模式（結構化輸出）──────────────
             with gr.TabItem("🔬 工程分析模式（結構化輸出）"):
