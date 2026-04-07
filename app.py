@@ -34,6 +34,8 @@ from typing import List, Optional
 # 1. API Key 設定
 # ============================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+DATA_DIR = os.environ.get("RAG_DATA_DIR", "rag_data")
+
 
 # ============================================================
 # 2. 結構化輸出 Schema（對應課程 7.03，對應 MES Phase B 格式）
@@ -75,12 +77,25 @@ def build_rag_system():
 
     print("📂 載入知識庫文件...")
     loader = DirectoryLoader(
-        "rag_data",
+        DATA_DIR,
         glob="**/*.md",
         loader_cls=TextLoader,
         loader_kwargs={"encoding": "utf-8"}
     )
     documents = loader.load()
+    if not documents and DATA_DIR == "rag_data":
+        print("⚠️ rag_data 目錄沒有找到 .md，改從目前目錄尋找知識庫文件...")
+        fallback_loader = DirectoryLoader(
+            ".",
+            glob="*.md",
+            loader_cls=TextLoader,
+            loader_kwargs={"encoding": "utf-8"}
+        )
+        documents = [d for d in fallback_loader.load() if not d.metadata.get("source", "").endswith("README.md")]
+
+    if not documents:
+        raise RuntimeError("找不到知識庫文件。請建立 rag_data/ 並放入 .md，或設定 RAG_DATA_DIR。")
+
     print(f"  ✅ 載入 {len(documents)} 份文件")
 
     # 文本分段（Parent-Document 概念：保留較大 chunk 給 context）

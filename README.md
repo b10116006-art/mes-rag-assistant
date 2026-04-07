@@ -17,15 +17,19 @@ license: mit
 ## 功能
 
 - 💬 **對話助手**：用自然語言詢問製程問題，AI 從知識庫檢索相關資訊回答
+- 🔬 **工程分析模式**：輸入異常描述，輸出結構化 JSON 分析結果
 - 🔍 **知識庫檢索**：直接搜尋原始知識段落，確認 AI 的參考來源
 - ℹ️ **系統說明**：架構介紹與課程對應章節
 
-## 知識庫涵蓋
+## 知識庫放置方式
 
-1. 製程異常類型定義（ILD、TiN、STI、BPSG、Metal）
-2. 標準處置 SOP（設備 OOC、Lot Hold、PM 排程）
-3. AI Copilot 判斷邏輯（anomaly_type、risk_level、workflow）
-4. 設備故障排除（PECVD、PVD、CMP、Dry Etch）
+建議將 `.md` 知識庫文件放在 `rag_data/` 目錄下。
+
+例如：
+- `rag_data/01_異常類型定義.md`
+- `rag_data/02_SOP_異常處置流程.md`
+- `rag_data/03_AI_Copilot判斷邏輯.md`
+- `rag_data/04_設備常見問題集.md`
 
 ## 使用技術
 
@@ -39,5 +43,10 @@ license: mit
 
 ## 設定
 
-在 HuggingFace Space 的 Settings → Secrets 中加入：
-- `OPENAI_API_KEY`：你的 OpenAI API Key
+在 Hugging Face Space 的 **Settings → Secrets** 中加入：
+
+- `GEMINI_API_KEY`：你的 Google Gemini API Key
+
+如需更改知識庫資料夾，可額外設定：
+
+- `RAG_DATA_DIR`：知識庫目錄路徑（預設為 `rag_data`）
