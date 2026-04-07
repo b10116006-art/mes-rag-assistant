@@ -30,7 +30,7 @@ from typing import List, Optional
 # ============================================================
 # 1. API Key 設定
 # ============================================================
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # ============================================================
 # 2. 結構化輸出 Schema（對應課程 7.03，對應 MES Phase B 格式）
@@ -107,9 +107,9 @@ def build_rag_system():
     print(f"  ✅ 向量資料庫建立完成，共 {vectorstore._collection.count()} 筆向量")
 
     # LLM 設定
-    llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        api_key=OPENAI_API_KEY,
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash",
+        google_api_key=GEMINI_API_KEY,
         temperature=0.1,
     )
 
@@ -197,8 +197,8 @@ etch_rate_drift / cd_shift / void_detected / general"""),
 # 5. 對話函數
 # ============================================================
 def chat(message, history):
-    if not OPENAI_API_KEY:
-        return "⚠️ 請先設定 OPENAI_API_KEY 環境變數"
+    if not GEMINI_API_KEY:
+        return "⚠️ 請先設定 GEMINI_API_KEY 環境變數"
     if rag_chain is None:
         return "⚠️ RAG 系統尚未初始化，請稍候"
     if not message.strip():
@@ -211,8 +211,8 @@ def chat(message, history):
 
 def analyze_structured(description):
     """結構化異常分析（對應 MES Phase B 格式）"""
-    if not OPENAI_API_KEY:
-        return "⚠️ 請先設定 OPENAI_API_KEY"
+    if not GEMINI_API_KEY:
+        return "⚠️ 請先設定 GEMINI_API_KEY"
     if analysis_chain is None:
         return "⚠️ 系統尚未初始化"
     if not description.strip():
