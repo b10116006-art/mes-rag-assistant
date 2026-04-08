@@ -1,10 +1,10 @@
 """
 半導體製程 FAB Copilot 知識助手
-Production-ish demo 版：
+Model Switch UI 版：
 - 保留原版多分頁 UI
 - 保留 Multi-Query RAG
-- Gemini model 可切換（2.5 / 2.0）
-- Gemini 自動 retry（503 / high demand）
+- 支援 UI 切換 Auto / Gemini / OpenAI
+- Gemini 自動 retry（503 / 429 / quota-like）
 - OpenAI fallback
 - provider_used 顯示
 """
@@ -190,14 +190,12 @@ etch_rate_drift / cd_shift / void_detected / general"""),
     if GEMINI_API_KEY:
         gemini_llm = make_gemini_llm()
         gemini_retriever = build_multi_query_retriever(gemini_llm)
-
         chat_chains["gemini"] = (
             {"context": gemini_retriever | format_docs, "question": RunnablePassthrough()}
             | chat_prompt
             | gemini_llm
             | StrOutputParser()
         )
-
         gemini_structured = gemini_llm.with_structured_output(MESAnalysisOutput)
         analysis_chains["gemini"] = (
             {"context": gemini_retriever | format_docs, "question": RunnablePassthrough()}
@@ -208,14 +206,12 @@ etch_rate_drift / cd_shift / void_detected / general"""),
     if OPENAI_API_KEY:
         openai_llm = make_openai_llm()
         openai_retriever = build_multi_query_retriever(openai_llm)
-
         chat_chains["openai"] = (
             {"context": openai_retriever | format_docs, "question": RunnablePassthrough()}
             | chat_prompt
             | openai_llm
             | StrOutputParser()
         )
-
         openai_structured = openai_llm.with_structured_output(MESAnalysisOutput)
         analysis_chains["openai"] = (
             {"context": openai_retriever | format_docs, "question": RunnablePassthrough()}
@@ -237,8 +233,7 @@ def test_gemini_health():
         content = getattr(resp, "content", str(resp))
         return f"✅ Gemini 可用：{GEMINI_MODEL}\n\n模型回覆：{content}"
     except Exception as e:
-        print("GEMINI HEALTH ERROR:", str(e))
-        return f"❌ Gemini 不可用：{GEMINI_MODEL}\n\n{str(e)}"
+        return f"⚠️ Gemini 可配置，但目前不可用：{GEMINI_MODEL}\n\n{str(e)}"
 
 def invoke_with_retry(chain, text, provider_name="gemini", retries=1, cooldown=1.2):
     last_err = None
@@ -255,7 +250,7 @@ def invoke_with_retry(chain, text, provider_name="gemini", retries=1, cooldown=1
             raise last_err
     raise last_err
 
-def chat(message, history):
+def run_chat_with_mode(message, mode="auto"):
     if not message.strip():
         return "請輸入問題"
     if len(message) > 300:
@@ -268,16 +263,35 @@ def chat(message, history):
     except Exception as e:
         return str(e)
 
+    if mode == "gemini":
+        if "gemini" not in chat_chains:
+            return "❌ Gemini 未設定"
+        try:
+            answer = invoke_with_retry(chat_chains["gemini"], message, provider_name="gemini", retries=1, cooldown=1.2)
+            return f"【provider_used: {GEMINI_MODEL}】\n【mode: gemini】\n\n{answer}"
+        except Exception as e:
+            return f"❌ Gemini 專用模式失敗：{e}"
+
+    if mode == "openai":
+        if "openai" not in chat_chains:
+            return "❌ OpenAI 未設定"
+        try:
+            answer = invoke_with_retry(chat_chains["openai"], message, provider_name="openai", retries=0)
+            return f"【provider_used: gpt-4o-mini】\n【mode: openai】\n\n{answer}"
+        except Exception as e:
+            return f"❌ OpenAI 專用模式失敗：{e}"
+
+    # auto mode
     if "gemini" in chat_chains:
         try:
             answer = invoke_with_retry(chat_chains["gemini"], message, provider_name="gemini", retries=1, cooldown=1.2)
-            return f"【provider_used: {GEMINI_MODEL}】\n\n{answer}"
+            return f"【provider_used: {GEMINI_MODEL}】\n【mode: auto】\n\n{answer}"
         except Exception as e:
             gemini_err = str(e)
             if "openai" in chat_chains and is_retryable_gemini_error(gemini_err):
                 try:
                     answer = invoke_with_retry(chat_chains["openai"], message, provider_name="openai", retries=0)
-                    return f"⚠️ Gemini 暫時忙碌或限流，已自動切換到 OpenAI gpt-4o-mini\n【provider_used: openai-fallback】\n\n{answer}"
+                    return f"⚠️ Gemini 暫時忙碌或限流，已自動切換到 OpenAI gpt-4o-mini\n【provider_used: openai-fallback】\n【mode: auto】\n\n{answer}"
                 except Exception as oe:
                     return f"❌ Gemini 與 OpenAI 都失敗。\nGemini: {gemini_err}\nOpenAI: {oe}"
             return f"❌ Gemini 錯誤：{gemini_err}"
@@ -285,13 +299,13 @@ def chat(message, history):
     if "openai" in chat_chains:
         try:
             answer = invoke_with_retry(chat_chains["openai"], message, provider_name="openai", retries=0)
-            return f"【provider_used: openai-only】\n\n{answer}"
+            return f"【provider_used: openai-only】\n【mode: auto】\n\n{answer}"
         except Exception as oe:
             return f"❌ OpenAI 錯誤：{oe}"
 
     return "❌ 無可用 provider"
 
-def analyze_structured(description):
+def run_analysis_with_mode(description, mode="auto"):
     if not description.strip():
         return "請描述異常情況"
     if len(description) > 500:
@@ -304,6 +318,49 @@ def analyze_structured(description):
     except Exception as e:
         return str(e)
 
+    if mode == "gemini":
+        if "gemini" not in analysis_chains:
+            return "❌ Gemini 未設定"
+        try:
+            result: MESAnalysisOutput = invoke_with_retry(
+                analysis_chains["gemini"], description, provider_name="gemini", retries=1, cooldown=1.2
+            )
+            output = {
+                "provider_used": GEMINI_MODEL,
+                "mode": "gemini",
+                "anomaly_type": result.anomaly_type,
+                "risk_level": result.risk_level,
+                "confidence": result.confidence,
+                "summary": result.summary,
+                "possible_root_causes": result.possible_root_causes,
+                "recommended_actions": result.recommended_actions
+            }
+            return json.dumps(output, ensure_ascii=False, indent=2)
+        except Exception as e:
+            return f"❌ Gemini 專用模式分析失敗：{e}"
+
+    if mode == "openai":
+        if "openai" not in analysis_chains:
+            return "❌ OpenAI 未設定"
+        try:
+            result: MESAnalysisOutput = invoke_with_retry(
+                analysis_chains["openai"], description, provider_name="openai", retries=0
+            )
+            output = {
+                "provider_used": "gpt-4o-mini",
+                "mode": "openai",
+                "anomaly_type": result.anomaly_type,
+                "risk_level": result.risk_level,
+                "confidence": result.confidence,
+                "summary": result.summary,
+                "possible_root_causes": result.possible_root_causes,
+                "recommended_actions": result.recommended_actions
+            }
+            return json.dumps(output, ensure_ascii=False, indent=2)
+        except Exception as e:
+            return f"❌ OpenAI 專用模式分析失敗：{e}"
+
+    # auto mode
     if "gemini" in analysis_chains:
         try:
             result: MESAnalysisOutput = invoke_with_retry(
@@ -311,6 +368,7 @@ def analyze_structured(description):
             )
             output = {
                 "provider_used": GEMINI_MODEL,
+                "mode": "auto",
                 "anomaly_type": result.anomaly_type,
                 "risk_level": result.risk_level,
                 "confidence": result.confidence,
@@ -328,6 +386,7 @@ def analyze_structured(description):
                     )
                     output = {
                         "provider_used": "openai-fallback",
+                        "mode": "auto",
                         "anomaly_type": result.anomaly_type,
                         "risk_level": result.risk_level,
                         "confidence": result.confidence,
@@ -348,6 +407,7 @@ def analyze_structured(description):
             )
             output = {
                 "provider_used": "openai-only",
+                "mode": "auto",
                 "anomaly_type": result.anomaly_type,
                 "risk_level": result.risk_level,
                 "confidence": result.confidence,
@@ -384,7 +444,7 @@ def create_ui():
             <p>Multi-Query RAG × 結構化輸出 × ChromaDB × Gemini 主模型 × OpenAI Fallback</p>
         </div>
         """)
-        gr.Markdown(f"公開 demo：預設使用 `{GEMINI_MODEL}`；若 Gemini 503 / 429 / quota 異常，系統會先 retry，再自動切換 OpenAI。")
+        gr.Markdown(f"公開 demo：預設使用 `{GEMINI_MODEL}`；可在 UI 選擇 Auto / Gemini / OpenAI。")
 
         with gr.Accordion("🔧 Gemini 健康檢查 / Debug", open=False):
             health_btn = gr.Button("測試 Gemini 是否可用", variant="secondary")
@@ -395,28 +455,38 @@ def create_ui():
             with gr.TabItem("💬 對話助手"):
                 gr.Markdown("""
                 **使用 Multi-Query RAG**：自動從多角度搜尋知識庫，比單一查詢更準確。
-
-                範例問題：ILD 厚度偏薄怎麼排查？ / TiN 片電阻漂移原因？ / Lot Hold 如何解除？
                 """)
+                mode_chat = gr.Radio(
+                    choices=["auto", "gemini", "openai"],
+                    value="auto",
+                    label="對話模式選擇",
+                    info="auto=先 Gemini，失敗再 OpenAI；gemini=只用 Gemini；openai=只用 OpenAI"
+                )
                 chatbot = gr.Chatbot(height=420, label="FAB Copilot", type="messages")
                 with gr.Row():
                     msg_input = gr.Textbox(placeholder="輸入製程問題...", label="", scale=9, container=False)
                     send_btn = gr.Button("送出 ▶", variant="primary", scale=1)
                 clear_btn = gr.Button("清除對話", variant="secondary")
 
-                def respond(message, history):
+                def respond(message, history, mode):
                     if not message.strip():
                         return "", history
-                    response = chat(message, history)
-                    history.append({"role": "user", "content": message})
+                    response = run_chat_with_mode(message, mode)
+                    history.append({"role": "user", "content": f"[mode={mode}] {message}"})
                     history.append({"role": "assistant", "content": response})
                     return "", history
 
-                msg_input.submit(respond, [msg_input, chatbot], [msg_input, chatbot])
-                send_btn.click(respond, [msg_input, chatbot], [msg_input, chatbot])
+                msg_input.submit(respond, [msg_input, chatbot, mode_chat], [msg_input, chatbot])
+                send_btn.click(respond, [msg_input, chatbot, mode_chat], [msg_input, chatbot])
                 clear_btn.click(lambda: [], outputs=[chatbot])
 
             with gr.TabItem("🔬 工程分析模式（結構化輸出）"):
+                mode_analysis = gr.Radio(
+                    choices=["auto", "gemini", "openai"],
+                    value="auto",
+                    label="分析模式選擇",
+                    info="auto=先 Gemini，失敗再 OpenAI；gemini=只用 Gemini；openai=只用 OpenAI"
+                )
                 analysis_input = gr.Textbox(
                     placeholder="描述異常情況，例如：ILD 厚度量測偏薄 8%，49點 map 中心偏低...",
                     label="異常描述",
@@ -424,8 +494,8 @@ def create_ui():
                 )
                 analyze_btn = gr.Button("🔬 執行結構化分析", variant="primary")
                 analysis_output = gr.Code(label="結構化輸出（JSON，對應 MES API 格式）", language="json")
-                analyze_btn.click(analyze_structured, inputs=analysis_input, outputs=analysis_output)
-                analysis_input.submit(analyze_structured, inputs=analysis_input, outputs=analysis_output)
+                analyze_btn.click(run_analysis_with_mode, inputs=[analysis_input, mode_analysis], outputs=analysis_output)
+                analysis_input.submit(run_analysis_with_mode, inputs=[analysis_input, mode_analysis], outputs=analysis_output)
 
             with gr.TabItem("🔍 知識庫檢索"):
                 search_input = gr.Textbox(placeholder="輸入關鍵字...", label="搜尋")
@@ -439,23 +509,23 @@ def create_ui():
                 ### 目前 Gemini model
                 `{GEMINI_MODEL}`
 
-                ### Provider 策略
-                - Primary: `{GEMINI_MODEL}`
-                - Retry once on 503 / 429 / quota-like errors
-                - Fallback: `gpt-4o-mini`
+                ### UI 模式
+                - `auto`：先 Gemini，503 / 429 / quota-like error 時 retry 後 fallback OpenAI
+                - `gemini`：只用 Gemini，方便展示與測試
+                - `openai`：只用 OpenAI，方便穩定 demo
 
-                ### 現在的設計目的
+                ### 設計目的
                 - 保留 Multi-Query RAG
                 - 保持原版 UI
                 - 提高公開 demo 韌性
-                - 顯示 provider_used，方便 demo 與面試說明
+                - 讓面試時可以直接展示 provider routing
                 """)
 
     return demo
 
 if __name__ == "__main__":
     print("=" * 55)
-    print("🚀 FAB Copilot 知識助手（production-ish 版）")
+    print("🚀 FAB Copilot 知識助手（model switch UI 版）")
     print("=" * 55)
     if build_rag_system():
         demo = create_ui()
