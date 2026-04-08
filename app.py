@@ -1,11 +1,12 @@
 """
 半導體製程 FAB Copilot 知識助手
-保留原版多分頁 UI + Multi-Query RAG + 結構化分析 + 知識庫檢索
-新增：
-- Gemini model 可切換（預設 gemini-2.5-flash）
+Production-ish demo 版：
+- 保留原版多分頁 UI
+- 保留 Multi-Query RAG
+- Gemini model 可切換（2.5 / 2.0）
+- Gemini 自動 retry（503 / high demand）
 - OpenAI fallback
-- Gemini health check
-- error/debug status 顯示
+- provider_used 顯示
 """
 
 import os
@@ -35,8 +36,6 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 DATA_DIR = os.environ.get("RAG_DATA_DIR", "rag_data")
 LAST_CALL_TS = 0
-LAST_PROVIDER_STATUS = "尚未測試"
-LAST_GEMINI_ERROR = ""
 
 class MESAnalysisOutput(BaseModel):
     anomaly_type: str = Field(description="異常類型代碼")
@@ -57,15 +56,19 @@ def rate_limit():
         raise RuntimeError("⏳ 請間隔 2 秒再試。")
     LAST_CALL_TS = now
 
-def is_quota_error(err_text: str) -> bool:
+def is_retryable_gemini_error(err_text: str) -> bool:
     lowered = err_text.lower()
-    return (
-        "429" in lowered
-        or "quota" in lowered
-        or "rate limit" in lowered
-        or "resource_exhausted" in lowered
-        or "too many requests" in lowered
-    )
+    markers = [
+        "503",
+        "unavailable",
+        "high demand",
+        "resource_exhausted",
+        "429",
+        "quota",
+        "rate limit",
+        "too many requests",
+    ]
+    return any(m in lowered for m in markers)
 
 def make_gemini_llm():
     return ChatGoogleGenerativeAI(
@@ -226,27 +229,33 @@ etch_rate_drift / cd_shift / void_detected / general"""),
     return True
 
 def test_gemini_health():
-    global LAST_PROVIDER_STATUS, LAST_GEMINI_ERROR
     if not GEMINI_API_KEY:
-        LAST_PROVIDER_STATUS = "Gemini key 未設定"
-        LAST_GEMINI_ERROR = "找不到 GEMINI_API_KEY"
-        return f"❌ {LAST_PROVIDER_STATUS}\n\n{LAST_GEMINI_ERROR}"
-
+        return "❌ 找不到 GEMINI_API_KEY"
     try:
         llm = make_gemini_llm()
         resp = llm.invoke("請只回覆 OK")
         content = getattr(resp, "content", str(resp))
-        LAST_PROVIDER_STATUS = f"Gemini 可用：{GEMINI_MODEL}"
-        LAST_GEMINI_ERROR = ""
-        return f"✅ {LAST_PROVIDER_STATUS}\n\n模型回覆：{content}"
+        return f"✅ Gemini 可用：{GEMINI_MODEL}\n\n模型回覆：{content}"
     except Exception as e:
-        LAST_PROVIDER_STATUS = f"Gemini 不可用：{GEMINI_MODEL}"
-        LAST_GEMINI_ERROR = str(e)
         print("GEMINI HEALTH ERROR:", str(e))
-        return f"❌ {LAST_PROVIDER_STATUS}\n\n{LAST_GEMINI_ERROR}"
+        return f"❌ Gemini 不可用：{GEMINI_MODEL}\n\n{str(e)}"
+
+def invoke_with_retry(chain, text, provider_name="gemini", retries=1, cooldown=1.2):
+    last_err = None
+    for attempt in range(retries + 1):
+        try:
+            return chain.invoke(text)
+        except Exception as e:
+            last_err = e
+            err_text = str(e)
+            print(f"{provider_name.upper()} ATTEMPT {attempt+1} ERROR:", err_text)
+            if provider_name == "gemini" and is_retryable_gemini_error(err_text) and attempt < retries:
+                time.sleep(cooldown)
+                continue
+            raise last_err
+    raise last_err
 
 def chat(message, history):
-    global LAST_PROVIDER_STATUS, LAST_GEMINI_ERROR
     if not message.strip():
         return "請輸入問題"
     if len(message) > 300:
@@ -259,36 +268,28 @@ def chat(message, history):
     except Exception as e:
         return str(e)
 
-    providers = []
     if "gemini" in chat_chains:
-        providers.append("gemini")
-    if "openai" in chat_chains:
-        providers.append("openai")
-
-    first_error = None
-    for provider in providers:
         try:
-            answer = chat_chains[provider].invoke(message)
-            if provider == "gemini":
-                LAST_PROVIDER_STATUS = f"目前使用 Gemini：{GEMINI_MODEL}"
-                LAST_GEMINI_ERROR = ""
-                return answer
-            LAST_PROVIDER_STATUS = "Gemini 失敗，已切到 OpenAI"
-            return f"⚠️ Gemini 暫時不可用，已自動切換到 OpenAI gpt-4o-mini\n\n{answer}"
+            answer = invoke_with_retry(chat_chains["gemini"], message, provider_name="gemini", retries=1, cooldown=1.2)
+            return f"【provider_used: {GEMINI_MODEL}】\n\n{answer}"
         except Exception as e:
-            err_text = str(e)
-            print(f"{provider.upper()} ERROR:", err_text)
-            if provider == "gemini":
-                LAST_GEMINI_ERROR = err_text
-            if first_error is None:
-                first_error = err_text
-            if provider == "gemini" and is_quota_error(err_text) and "openai" in chat_chains:
-                continue
-            if provider == "openai":
-                return f"❌ OpenAI fallback 也失敗：{err_text}"
-            return f"❌ 錯誤：{err_text}"
+            gemini_err = str(e)
+            if "openai" in chat_chains and is_retryable_gemini_error(gemini_err):
+                try:
+                    answer = invoke_with_retry(chat_chains["openai"], message, provider_name="openai", retries=0)
+                    return f"⚠️ Gemini 暫時忙碌或限流，已自動切換到 OpenAI gpt-4o-mini\n【provider_used: openai-fallback】\n\n{answer}"
+                except Exception as oe:
+                    return f"❌ Gemini 與 OpenAI 都失敗。\nGemini: {gemini_err}\nOpenAI: {oe}"
+            return f"❌ Gemini 錯誤：{gemini_err}"
 
-    return f"❌ 錯誤：{first_error or '未知錯誤'}"
+    if "openai" in chat_chains:
+        try:
+            answer = invoke_with_retry(chat_chains["openai"], message, provider_name="openai", retries=0)
+            return f"【provider_used: openai-only】\n\n{answer}"
+        except Exception as oe:
+            return f"❌ OpenAI 錯誤：{oe}"
+
+    return "❌ 無可用 provider"
 
 def analyze_structured(description):
     if not description.strip():
@@ -303,18 +304,13 @@ def analyze_structured(description):
     except Exception as e:
         return str(e)
 
-    providers = []
     if "gemini" in analysis_chains:
-        providers.append("gemini")
-    if "openai" in analysis_chains:
-        providers.append("openai")
-
-    first_error = None
-    for provider in providers:
         try:
-            result: MESAnalysisOutput = analysis_chains[provider].invoke(description)
+            result: MESAnalysisOutput = invoke_with_retry(
+                analysis_chains["gemini"], description, provider_name="gemini", retries=1, cooldown=1.2
+            )
             output = {
-                "provider_used": GEMINI_MODEL if provider == "gemini" else "gpt-4o-mini",
+                "provider_used": GEMINI_MODEL,
                 "anomaly_type": result.anomaly_type,
                 "risk_level": result.risk_level,
                 "confidence": result.confidence,
@@ -324,17 +320,46 @@ def analyze_structured(description):
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
-            err_text = str(e)
-            print(f"ANALYSIS {provider.upper()} ERROR:", err_text)
-            if first_error is None:
-                first_error = err_text
-            if provider == "gemini" and is_quota_error(err_text) and "openai" in analysis_chains:
-                continue
-            if provider == "openai":
-                return f"❌ OpenAI fallback 也失敗：{err_text}"
-            return f"❌ 分析失敗：{err_text}"
+            gemini_err = str(e)
+            if "openai" in analysis_chains and is_retryable_gemini_error(gemini_err):
+                try:
+                    result: MESAnalysisOutput = invoke_with_retry(
+                        analysis_chains["openai"], description, provider_name="openai", retries=0
+                    )
+                    output = {
+                        "provider_used": "openai-fallback",
+                        "anomaly_type": result.anomaly_type,
+                        "risk_level": result.risk_level,
+                        "confidence": result.confidence,
+                        "summary": result.summary,
+                        "possible_root_causes": result.possible_root_causes,
+                        "recommended_actions": result.recommended_actions,
+                        "fallback_reason": gemini_err,
+                    }
+                    return json.dumps(output, ensure_ascii=False, indent=2)
+                except Exception as oe:
+                    return f"❌ Gemini 與 OpenAI 都失敗。\nGemini: {gemini_err}\nOpenAI: {oe}"
+            return f"❌ Gemini 分析失敗：{gemini_err}"
 
-    return f"❌ 分析失敗：{first_error or '未知錯誤'}"
+    if "openai" in analysis_chains:
+        try:
+            result: MESAnalysisOutput = invoke_with_retry(
+                analysis_chains["openai"], description, provider_name="openai", retries=0
+            )
+            output = {
+                "provider_used": "openai-only",
+                "anomaly_type": result.anomaly_type,
+                "risk_level": result.risk_level,
+                "confidence": result.confidence,
+                "summary": result.summary,
+                "possible_root_causes": result.possible_root_causes,
+                "recommended_actions": result.recommended_actions
+            }
+            return json.dumps(output, ensure_ascii=False, indent=2)
+        except Exception as oe:
+            return f"❌ OpenAI 分析失敗：{oe}"
+
+    return "❌ 無可用 provider"
 
 def get_relevant_docs(query):
     if vectorstore is None:
@@ -359,7 +384,7 @@ def create_ui():
             <p>Multi-Query RAG × 結構化輸出 × ChromaDB × Gemini 主模型 × OpenAI Fallback</p>
         </div>
         """)
-        gr.Markdown(f"公開 demo：預設使用 `{GEMINI_MODEL}`，若 quota / rate limit 異常將自動切換 OpenAI。")
+        gr.Markdown(f"公開 demo：預設使用 `{GEMINI_MODEL}`；若 Gemini 503 / 429 / quota 異常，系統會先 retry，再自動切換 OpenAI。")
 
         with gr.Accordion("🔧 Gemini 健康檢查 / Debug", open=False):
             health_btn = gr.Button("測試 Gemini 是否可用", variant="secondary")
@@ -414,15 +439,23 @@ def create_ui():
                 ### 目前 Gemini model
                 `{GEMINI_MODEL}`
 
-                ### 若 Gemini 失敗
-                系統會自動切到 OpenAI gpt-4o-mini。
+                ### Provider 策略
+                - Primary: `{GEMINI_MODEL}`
+                - Retry once on 503 / 429 / quota-like errors
+                - Fallback: `gpt-4o-mini`
+
+                ### 現在的設計目的
+                - 保留 Multi-Query RAG
+                - 保持原版 UI
+                - 提高公開 demo 韌性
+                - 顯示 provider_used，方便 demo 與面試說明
                 """)
 
     return demo
 
 if __name__ == "__main__":
     print("=" * 55)
-    print("🚀 FAB Copilot 知識助手（Gemini debug 版）")
+    print("🚀 FAB Copilot 知識助手（production-ish 版）")
     print("=" * 55)
     if build_rag_system():
         demo = create_ui()

@@ -10,7 +10,7 @@ pinned: false
 license: mit
 ---
 
-# 半導體製程 FAB Copilot 知識助手（Gemini Debug）
+# 半導體製程 FAB Copilot 知識助手（production-ish）
 
 ## HF Secrets
 - `GEMINI_API_KEY`
