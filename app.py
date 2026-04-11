@@ -10,6 +10,7 @@ Model Switch UI 版：
 """
 
 import os
+import re
 import time
 import json
 import gradio as gr
@@ -48,6 +49,56 @@ class MESAnalysisOutput(BaseModel):
 vectorstore = None
 chat_chains = {}
 analysis_chains = {}
+
+# --- Memory Layer (Phase 1) ---
+
+MEMORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "memory", "memory_store.json")
+_memory_records: list = []
+
+def load_memory():
+    global _memory_records
+    if not os.path.exists(MEMORY_FILE):
+        print("Memory store not found, skipping:", MEMORY_FILE)
+        return
+    try:
+        with open(MEMORY_FILE, encoding="utf-8") as f:
+            _memory_records = json.load(f)
+        print(f"Loaded {len(_memory_records)} memory records.")
+    except Exception as e:
+        print(f"Failed to load memory store: {e}")
+
+def _tokenize(text: str) -> set:
+    return set(re.split(r'[\s/_\-,;:.。，、（）【】()]+', text.lower())) - {""}
+
+def retrieve_memory(query: str, top_k: int = 2) -> list:
+    if not _memory_records:
+        return []
+    q_tokens = _tokenize(query)
+    scored = []
+    for record in _memory_records:
+        candidate = " ".join([
+            record.get("anomaly_type", ""),
+            record.get("layer", ""),
+            record.get("machine_id", ""),
+            record.get("summary", ""),
+            record.get("root_cause", ""),
+        ])
+        score = len(q_tokens & _tokenize(candidate))
+        if score > 0:
+            scored.append((score, record))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [r for _, r in scored[:top_k]]
+
+def format_memory_context(records: list) -> str:
+    if not records:
+        return ""
+    lines = ["[相關歷史案例]"]
+    for r in records:
+        lines.append(
+            f"- [{r['case_id']}] {r['anomaly_type']} / {r.get('layer', '?')} / {r.get('machine_id', '?')}: "
+            f"{r['summary']} | 根因: {r['root_cause']} | 處置: {r['action_taken']} | 結果: {r['outcome']}"
+        )
+    return "\n".join(lines)
 
 def rate_limit():
     global LAST_CALL_TS
@@ -118,6 +169,7 @@ def build_rag_system():
     print("DEBUG GEMINI MODEL:", GEMINI_MODEL)
     print("DEBUG GEMINI KEY EXIST:", bool(GEMINI_API_KEY))
     print("DEBUG OPENAI KEY EXIST:", bool(OPENAI_API_KEY))
+    load_memory()
 
     loader = DirectoryLoader(
         DATA_DIR,
@@ -263,11 +315,14 @@ def run_chat_with_mode(message, mode="auto"):
     except Exception as e:
         return str(e)
 
+    mem_block = format_memory_context(retrieve_memory(message))
+    effective_message = f"{mem_block}\n\n{message}" if mem_block else message
+
     if mode == "gemini":
         if "gemini" not in chat_chains:
             return "❌ Gemini 未設定"
         try:
-            answer = invoke_with_retry(chat_chains["gemini"], message, provider_name="gemini", retries=1, cooldown=1.2)
+            answer = invoke_with_retry(chat_chains["gemini"], effective_message, provider_name="gemini", retries=1, cooldown=1.2)
             return f"【provider_used: {GEMINI_MODEL}】\n【mode: gemini】\n\n{answer}"
         except Exception as e:
             return f"❌ Gemini 專用模式失敗：{e}"
@@ -276,7 +331,7 @@ def run_chat_with_mode(message, mode="auto"):
         if "openai" not in chat_chains:
             return "❌ OpenAI 未設定"
         try:
-            answer = invoke_with_retry(chat_chains["openai"], message, provider_name="openai", retries=0)
+            answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
             return f"【provider_used: gpt-4o-mini】\n【mode: openai】\n\n{answer}"
         except Exception as e:
             return f"❌ OpenAI 專用模式失敗：{e}"
@@ -284,13 +339,13 @@ def run_chat_with_mode(message, mode="auto"):
     # auto mode
     if "gemini" in chat_chains:
         try:
-            answer = invoke_with_retry(chat_chains["gemini"], message, provider_name="gemini", retries=1, cooldown=1.2)
+            answer = invoke_with_retry(chat_chains["gemini"], effective_message, provider_name="gemini", retries=1, cooldown=1.2)
             return f"【provider_used: {GEMINI_MODEL}】\n【mode: auto】\n\n{answer}"
         except Exception as e:
             gemini_err = str(e)
             if "openai" in chat_chains and is_retryable_gemini_error(gemini_err):
                 try:
-                    answer = invoke_with_retry(chat_chains["openai"], message, provider_name="openai", retries=0)
+                    answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
                     return f"⚠️ Gemini 暫時忙碌或限流，已自動切換到 OpenAI gpt-4o-mini\n【provider_used: openai-fallback】\n【mode: auto】\n\n{answer}"
                 except Exception as oe:
                     return f"❌ Gemini 與 OpenAI 都失敗。\nGemini: {gemini_err}\nOpenAI: {oe}"
@@ -298,7 +353,7 @@ def run_chat_with_mode(message, mode="auto"):
 
     if "openai" in chat_chains:
         try:
-            answer = invoke_with_retry(chat_chains["openai"], message, provider_name="openai", retries=0)
+            answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
             return f"【provider_used: openai-only】\n【mode: auto】\n\n{answer}"
         except Exception as oe:
             return f"❌ OpenAI 錯誤：{oe}"
@@ -318,12 +373,15 @@ def run_analysis_with_mode(description, mode="auto"):
     except Exception as e:
         return str(e)
 
+    mem_block = format_memory_context(retrieve_memory(description))
+    effective_description = f"{mem_block}\n\n{description}" if mem_block else description
+
     if mode == "gemini":
         if "gemini" not in analysis_chains:
             return "❌ Gemini 未設定"
         try:
             result: MESAnalysisOutput = invoke_with_retry(
-                analysis_chains["gemini"], description, provider_name="gemini", retries=1, cooldown=1.2
+                analysis_chains["gemini"], effective_description, provider_name="gemini", retries=1, cooldown=1.2
             )
             output = {
                 "provider_used": GEMINI_MODEL,
@@ -344,7 +402,7 @@ def run_analysis_with_mode(description, mode="auto"):
             return "❌ OpenAI 未設定"
         try:
             result: MESAnalysisOutput = invoke_with_retry(
-                analysis_chains["openai"], description, provider_name="openai", retries=0
+                analysis_chains["openai"], effective_description, provider_name="openai", retries=0
             )
             output = {
                 "provider_used": "gpt-4o-mini",
@@ -364,7 +422,7 @@ def run_analysis_with_mode(description, mode="auto"):
     if "gemini" in analysis_chains:
         try:
             result: MESAnalysisOutput = invoke_with_retry(
-                analysis_chains["gemini"], description, provider_name="gemini", retries=1, cooldown=1.2
+                analysis_chains["gemini"], effective_description, provider_name="gemini", retries=1, cooldown=1.2
             )
             output = {
                 "provider_used": GEMINI_MODEL,
@@ -382,7 +440,7 @@ def run_analysis_with_mode(description, mode="auto"):
             if "openai" in analysis_chains and is_retryable_gemini_error(gemini_err):
                 try:
                     result: MESAnalysisOutput = invoke_with_retry(
-                        analysis_chains["openai"], description, provider_name="openai", retries=0
+                        analysis_chains["openai"], effective_description, provider_name="openai", retries=0
                     )
                     output = {
                         "provider_used": "openai-fallback",
@@ -403,7 +461,7 @@ def run_analysis_with_mode(description, mode="auto"):
     if "openai" in analysis_chains:
         try:
             result: MESAnalysisOutput = invoke_with_retry(
-                analysis_chains["openai"], description, provider_name="openai", retries=0
+                analysis_chains["openai"], effective_description, provider_name="openai", retries=0
             )
             output = {
                 "provider_used": "openai-only",

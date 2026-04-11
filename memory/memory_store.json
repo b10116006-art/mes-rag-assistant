@@ -1,0 +1,57 @@
+[
+  {
+    "case_id": "MEM-001",
+    "anomaly_type": "thickness_ood",
+    "layer": "ILD",
+    "machine_id": "PECVD-01",
+    "summary": "ILD 厚度量測值低於規格下限 8%，49點 map 呈現中心偏薄分布",
+    "root_cause": "PECVD 腔體溫度控制器飄移，導致沉積速率下降",
+    "action_taken": "執行腔體溫度校正與 process recipe 確認，補 deposition 30 秒",
+    "outcome": "厚度回復至規格中心，後續 5 批次量測正常",
+    "ts": "2026-03-15T08:30:00"
+  },
+  {
+    "case_id": "MEM-002",
+    "anomaly_type": "particle_count",
+    "layer": "poly",
+    "machine_id": "LPCVD-03",
+    "summary": "poly 層 particle count 超過 spec 上限 2 倍，集中於 wafer 邊緣",
+    "root_cause": "LPCVD 爐管石英管有裂痕，掉落碎屑污染",
+    "action_taken": "停機換管，執行完整 particle qualification run",
+    "outcome": "換管後 particle 回復正常，機台重新 release",
+    "ts": "2026-03-22T14:15:00"
+  },
+  {
+    "case_id": "MEM-003",
+    "anomaly_type": "etch_rate_drift",
+    "layer": "oxide",
+    "machine_id": "RIE-02",
+    "summary": "oxide etch rate 較 target 偏高 12%，CD 量測有縮小趨勢",
+    "root_cause": "RIE 腔體壓力感測器老化，實際壓力低於設定值，加速蝕刻",
+    "action_taken": "更換壓力感測器，重新執行 etch rate 校正 run",
+    "outcome": "etch rate 回到 spec 範圍，CD 量測正常",
+    "ts": "2026-04-01T10:00:00"
+  },
+  {
+    "case_id": "MEM-004",
+    "anomaly_type": "uniformity_fail",
+    "layer": "metal1",
+    "machine_id": "PVD-05",
+    "summary": "metal1 PVD 均勻度超出 5% spec，片內有明顯中心-邊緣差異",
+    "root_cause": "靶材（target）壽命將盡，濺射功率分布不均",
+    "action_taken": "更換靶材，重新執行均勻度 qualification",
+    "outcome": "換靶後均勻度恢復 2.1%，符合 spec",
+    "ts": "2026-04-05T09:45:00"
+  },
+  {
+    "case_id": "MEM-005",
+    "anomaly_type": "sheet_resistance",
+    "layer": "poly",
+    "machine_id": "FURNACE-02",
+    "summary": "poly 摻雜後 sheet resistance 偏高 15%，影響元件電性",
+    "root_cause": "擴散爐溫度 profile 異常，dopant activation 不足",
+    "action_taken": "重新 anneal，確認爐管溫度 profile 後重製",
+    "outcome": "Rs 回復至 spec，元件電性量測通過",
+    "ts": "2026-04-08T11:20:00"
+  }
+]
