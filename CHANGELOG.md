@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-04-13 — Phase 1: Memory observability signals
+
+- Added `memory_used` and `matched_case_ids` debug signals to both `run_chat_with_mode` and `run_analysis_with_mode`
+- Chat mode: prepends `【memory_used: true/false】` and `【matched_case_ids: ...】` header to successful responses
+- Analysis mode: adds `memory_used` (bool) and `matched_case_ids` (list) as additive fields in JSON output
+- No changes to chain structure, retrieval logic, prompt templates, or existing `MESAnalysisOutput` fields
+
 ## 2026-04-12 — Phase 1: Memory-based RAG
 
 - Added `memory/memory_store.json` with 5 seed records (thickness_ood, particle_count, etch_rate_drift, uniformity_fail, sheet_resistance)
