@@ -48,6 +48,26 @@ The `[相關歷史案例]` block is only included when `retrieve_memory()` retur
 Retrieval is keyword-token overlap scoring across: `anomaly_type`, `layer`, `machine_id`, `summary`, `root_cause`.
 Top-k = 2 by default. Memory records live in `memory/memory_store.json`.
 
+## Debug signals (observability)
+
+Both `run_chat_with_mode` and `run_analysis_with_mode` emit two non-LLM debug signals derived from memory retrieval:
+
+- `memory_used` — `True` if `retrieve_memory()` returned ≥ 1 record
+- `matched_case_ids` — list of `case_id` values from the matched records
+
+Chat mode prepends them as header lines before `【provider_used: ...】`:
+
+```
+【memory_used: true】
+【matched_case_ids: MEM-001, MEM-002】
+【provider_used: gemini-2.5-flash】
+【mode: auto】
+
+<LLM answer>
+```
+
+Analysis mode adds them as additive JSON fields (`memory_used`, `matched_case_ids`) alongside the existing `MESAnalysisOutput` fields. No schema field is removed or renamed.
+
 ## Planned prompt changes
 
 - **Phase 3:** Add routing logic to select which context blocks to include
