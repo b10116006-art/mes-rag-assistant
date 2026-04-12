@@ -315,15 +315,22 @@ def run_chat_with_mode(message, mode="auto"):
     except Exception as e:
         return str(e)
 
-    mem_block = format_memory_context(retrieve_memory(message))
+    mem_records = retrieve_memory(message)
+    mem_block = format_memory_context(mem_records)
     effective_message = f"{mem_block}\n\n{message}" if mem_block else message
+    mem_used = len(mem_records) > 0
+    mem_ids = [r["case_id"] for r in mem_records]
+    _mhdr = f"【memory_used: {'true' if mem_used else 'false'}】"
+    if mem_ids:
+        _mhdr += f"\n【matched_case_ids: {', '.join(mem_ids)}】"
+    _mhdr += "\n"
 
     if mode == "gemini":
         if "gemini" not in chat_chains:
             return "❌ Gemini 未設定"
         try:
             answer = invoke_with_retry(chat_chains["gemini"], effective_message, provider_name="gemini", retries=1, cooldown=1.2)
-            return f"【provider_used: {GEMINI_MODEL}】\n【mode: gemini】\n\n{answer}"
+            return f"{_mhdr}【provider_used: {GEMINI_MODEL}】\n【mode: gemini】\n\n{answer}"
         except Exception as e:
             return f"❌ Gemini 專用模式失敗：{e}"
 
@@ -332,7 +339,7 @@ def run_chat_with_mode(message, mode="auto"):
             return "❌ OpenAI 未設定"
         try:
             answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
-            return f"【provider_used: gpt-4o-mini】\n【mode: openai】\n\n{answer}"
+            return f"{_mhdr}【provider_used: gpt-4o-mini】\n【mode: openai】\n\n{answer}"
         except Exception as e:
             return f"❌ OpenAI 專用模式失敗：{e}"
 
@@ -340,13 +347,13 @@ def run_chat_with_mode(message, mode="auto"):
     if "gemini" in chat_chains:
         try:
             answer = invoke_with_retry(chat_chains["gemini"], effective_message, provider_name="gemini", retries=1, cooldown=1.2)
-            return f"【provider_used: {GEMINI_MODEL}】\n【mode: auto】\n\n{answer}"
+            return f"{_mhdr}【provider_used: {GEMINI_MODEL}】\n【mode: auto】\n\n{answer}"
         except Exception as e:
             gemini_err = str(e)
             if "openai" in chat_chains and is_retryable_gemini_error(gemini_err):
                 try:
                     answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
-                    return f"⚠️ Gemini 暫時忙碌或限流，已自動切換到 OpenAI gpt-4o-mini\n【provider_used: openai-fallback】\n【mode: auto】\n\n{answer}"
+                    return f"{_mhdr}⚠️ Gemini 暫時忙碌或限流，已自動切換到 OpenAI gpt-4o-mini\n【provider_used: openai-fallback】\n【mode: auto】\n\n{answer}"
                 except Exception as oe:
                     return f"❌ Gemini 與 OpenAI 都失敗。\nGemini: {gemini_err}\nOpenAI: {oe}"
             return f"❌ Gemini 錯誤：{gemini_err}"
@@ -354,7 +361,7 @@ def run_chat_with_mode(message, mode="auto"):
     if "openai" in chat_chains:
         try:
             answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
-            return f"【provider_used: openai-only】\n【mode: auto】\n\n{answer}"
+            return f"{_mhdr}【provider_used: openai-only】\n【mode: auto】\n\n{answer}"
         except Exception as oe:
             return f"❌ OpenAI 錯誤：{oe}"
 
@@ -373,8 +380,11 @@ def run_analysis_with_mode(description, mode="auto"):
     except Exception as e:
         return str(e)
 
-    mem_block = format_memory_context(retrieve_memory(description))
+    mem_records = retrieve_memory(description)
+    mem_block = format_memory_context(mem_records)
     effective_description = f"{mem_block}\n\n{description}" if mem_block else description
+    mem_used = len(mem_records) > 0
+    mem_ids = [r["case_id"] for r in mem_records]
 
     if mode == "gemini":
         if "gemini" not in analysis_chains:
@@ -391,7 +401,9 @@ def run_analysis_with_mode(description, mode="auto"):
                 "confidence": result.confidence,
                 "summary": result.summary,
                 "possible_root_causes": result.possible_root_causes,
-                "recommended_actions": result.recommended_actions
+                "recommended_actions": result.recommended_actions,
+                "memory_used": mem_used,
+                "matched_case_ids": mem_ids,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -412,7 +424,9 @@ def run_analysis_with_mode(description, mode="auto"):
                 "confidence": result.confidence,
                 "summary": result.summary,
                 "possible_root_causes": result.possible_root_causes,
-                "recommended_actions": result.recommended_actions
+                "recommended_actions": result.recommended_actions,
+                "memory_used": mem_used,
+                "matched_case_ids": mem_ids,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -432,7 +446,9 @@ def run_analysis_with_mode(description, mode="auto"):
                 "confidence": result.confidence,
                 "summary": result.summary,
                 "possible_root_causes": result.possible_root_causes,
-                "recommended_actions": result.recommended_actions
+                "recommended_actions": result.recommended_actions,
+                "memory_used": mem_used,
+                "matched_case_ids": mem_ids,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -452,6 +468,8 @@ def run_analysis_with_mode(description, mode="auto"):
                         "possible_root_causes": result.possible_root_causes,
                         "recommended_actions": result.recommended_actions,
                         "fallback_reason": gemini_err,
+                        "memory_used": mem_used,
+                        "matched_case_ids": mem_ids,
                     }
                     return json.dumps(output, ensure_ascii=False, indent=2)
                 except Exception as oe:
@@ -471,7 +489,9 @@ def run_analysis_with_mode(description, mode="auto"):
                 "confidence": result.confidence,
                 "summary": result.summary,
                 "possible_root_causes": result.possible_root_causes,
-                "recommended_actions": result.recommended_actions
+                "recommended_actions": result.recommended_actions,
+                "memory_used": mem_used,
+                "matched_case_ids": mem_ids,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as oe:
