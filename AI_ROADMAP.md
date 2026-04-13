@@ -113,14 +113,16 @@
 
 ## Phase 4: Evaluation Layer
 
+**Status:** In progress — MVP landed. A local evaluation harness (`eval/run_eval.py` + `eval/eval_cases.json`) now reports `anomaly_type_accuracy`, `memory_used_accuracy`, and `route_used_accuracy` against a small labeled dataset. Remaining work: retrieval-level metrics (recall@k, MRR), larger benchmark set, and CI integration — tracked under Phase 3+ / Phase 4 Advanced RAG.
+
 **Objective:** Add automated quality metrics for retrieval relevance and decision accuracy.
 
 **Why it matters:** Without evaluation, there is no signal for whether improvements are real or regressions are introduced.
 
 **Acceptance criteria:**
 - Retrieval evaluation: top-k recall against a labeled test set
-- Decision evaluation: structured output accuracy on sample anomaly cases
-- Evaluation script runnable independently
+- Decision evaluation: structured output accuracy on sample anomaly cases ✅ (MVP)
+- Evaluation script runnable independently ✅ (MVP)
 
 ---
 
