@@ -68,6 +68,20 @@ Chat mode prepends them as header lines before `【provider_used: ...】`:
 
 Analysis mode adds them as additive JSON fields (`memory_used`, `matched_case_ids`) alongside the existing `MESAnalysisOutput` fields. No schema field is removed or renamed.
 
+## Phase 2 structured output hardening (implemented)
+
+Analysis output JSON now includes two additive metadata fields:
+
+- `schema_version` — currently `"1.0"`, bumped when a breaking schema change ships
+- `validation_passed` — `true` if the first LLM call returned valid structured output; `false` if a parse-error retry was needed (and succeeded)
+
+**Retry behavior:**
+- Network / quota errors: handled by existing `invoke_with_retry` (unchanged)
+- Parse / validation errors (`pydantic.ValidationError`, output-parser exceptions, or matching markers like `"failed to parse"`, `"json"`, `"schema"`, `"missing"`, `"invalid"`): retried exactly ONCE via `invoke_analysis_validated()`
+- If both attempts fail, the existing outer error path returns an error string — no output dict is emitted
+
+The Pydantic `MESAnalysisOutput` schema itself is unchanged. `schema_version` and `validation_passed` are added to the output dict only, preserving strict schema adherence.
+
 ## Planned prompt changes
 
 - **Phase 3:** Add routing logic to select which context blocks to include
