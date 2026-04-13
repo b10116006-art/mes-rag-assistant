@@ -82,7 +82,26 @@ Analysis output JSON now includes two additive metadata fields:
 
 The Pydantic `MESAnalysisOutput` schema itself is unchanged. `schema_version` and `validation_passed` are added to the output dict only, preserving strict schema adherence.
 
+## Phase 3 decision routing layer (implemented)
+
+A lightweight heuristic routing step runs before the chain is invoked. It does not rewrite prompts or change which chain executes — it produces two debug signals that expose *why* a particular knowledge source dominated the answer.
+
+**Query classification (`classify_query`)** — pure string heuristic, no LLM:
+- `case-based` — query mentions anomaly markers (`異常`, `偏`, `OOD`, `drift`, `fail`, …)
+- `sop_doc` — query mentions SOP/spec markers (`SOP`, `規範`, `規格`, `流程`, `spec`, `procedure`, …)
+- `general` — everything else
+
+**Routing decision (`route_query`)** — returns `(route_used, decision_reason, query_class)`:
+- `memory` — memory layer returned at least one matching case
+- `rag` — `sop_doc` query with no memory hit; RAG retrieval dominates
+- `llm` — fallback: general question, no memory hit
+
+**Debug fields:**
+- Chat mode: adds `【route_used: ...】` / `【decision_reason: ...】` to the existing header block
+- Analysis mode: adds `route_used` and `decision_reason` as additive JSON fields alongside Phase 2 fields
+
+Routing is observational only. The chain itself still wires memory context + RAG retrieval + LLM together unchanged, preserving the Phase 1/2 contract. `MESAnalysisOutput` schema is untouched.
+
 ## Planned prompt changes
 
-- **Phase 3:** Add routing logic to select which context blocks to include
 - **Phase 5:** Add explicit reasoning / ranking instructions to analysis prompt

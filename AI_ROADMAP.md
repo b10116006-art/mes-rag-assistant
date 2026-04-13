@@ -62,6 +62,55 @@
 
 ---
 
+## Phase 3+ / Phase 4 — Advanced RAG & Decision System
+
+**Status:** Planning. Scope identified during interview review — gaps the current Phase 1–3 stack does not yet cover.
+
+**Objective:** Move the system from "working prototype with structured output" to a measurable, production-grade retrieval and decision pipeline.
+
+**Why it matters:** The current stack retrieves and answers, but has no feedback loop for retrieval quality, no benchmark for decision accuracy, and no handling of real-world source formats (PDF, images, scanned SOPs). Without these, quality drift is invisible and source coverage is artificially limited to pre-cleaned markdown.
+
+### Work items
+
+**1. Retrieval quality improvements**
+- Tune `top_k` per query class (case-based vs. SOP/doc vs. general)
+- Add a reranking stage (cross-encoder or LLM-based) between vector recall and context assembly
+- Track retrieval diversity so near-duplicate chunks do not crowd out complementary sources
+
+**2. Evaluation system**
+- Curate a labeled benchmark dataset of anomaly descriptions → expected `anomaly_type` / root cause / action
+- Track retrieval metrics (recall@k, MRR) and decision metrics (field-level accuracy, schema validity rate)
+- Runnable as an offline script; results versioned so regressions are visible across phases
+
+**3. Query rewrite layer**
+- LLM-based rewrite that normalizes engineer shorthand, expands abbreviations, and resolves implicit context (layer, machine, step)
+- Runs before retrieval; rewrite output logged for audit
+- Must not replace MultiQueryRetriever — it augments the input, not the retrieval strategy
+
+**4. Multi-source routing refinement**
+- Evolve Phase 3's heuristic `classify_query` / `route_query` into a learned or confidence-weighted decision
+- Allow routing to *combine* sources with explicit weights rather than picking one dominant source
+- Expose routing confidence as a debug field alongside `route_used`
+
+**5. Multimodal support**
+- PDF ingestion pipeline (layout-aware parsing, not naive text extraction)
+- Image + OCR path for scanned SOPs, equipment screenshots, and wafer map captures
+- Normalize multimodal sources into the same chunk + metadata shape the text RAG pipeline already consumes, so downstream chains stay unchanged
+
+### Acceptance criteria
+- Benchmark dataset exists and CI-runnable evaluation script reports retrieval + decision metrics
+- Reranking stage measurably improves recall@k on the benchmark vs. the Phase 1 baseline
+- Query rewrite layer is toggleable and its effect measurable on the benchmark
+- Routing decision includes a confidence score; combined-source routing is supported
+- At least one non-markdown source format (PDF or image) flows end-to-end into a structured answer
+
+### Out of scope for this phase
+- Online learning / fine-tuning
+- Changes to `MESAnalysisOutput` schema (breaking changes deferred to a future `2.0` bump)
+- AOI vision integration or MES runtime ingestion (belongs in separate repos per Phase 0 scope)
+
+---
+
 ## Phase 4: Evaluation Layer
 
 **Objective:** Add automated quality metrics for retrieval relevance and decision accuracy.
