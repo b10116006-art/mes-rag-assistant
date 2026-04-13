@@ -60,6 +60,18 @@ python app.py
 
 Add knowledge documents as `.md` files to `rag_data/` before running.
 
+## Local evaluation (Phase 4)
+
+A small offline evaluation harness lives under `eval/`. It runs a labeled case set through the analysis path and reports decision / routing / memory accuracy — no API endpoints, no dashboards.
+
+```bash
+python eval/run_eval.py
+```
+
+- Cases: `eval/eval_cases.json` (10 labeled queries)
+- Results: `eval/eval_results.json` (full per-case detail)
+- Memory and routing metrics work even without API keys; `anomaly_type_accuracy` requires a live LLM
+
 ## HF Secrets (Hugging Face Space)
 
 - `GEMINI_API_KEY`

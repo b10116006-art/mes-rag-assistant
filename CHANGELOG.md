@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-04-13 — Phase 4: Evaluation Layer (MVP)
+
+- Added local evaluation utility under `eval/` — not wired into runtime or UI
+- New `eval/eval_cases.json` — 10 labeled cases covering 3 categories: memory-hit anomaly (5), SOP/doc (2), general no-memory (3)
+- New `eval/run_eval.py` — loads cases, runs the existing analysis path via `run_analysis_with_mode(mode="auto")`, reports:
+  - `total_cases`, `llm_responses_parsed`
+  - `anomaly_type_accuracy` (LLM decision quality)
+  - `memory_used_accuracy` (memory retrieval correctness)
+  - `route_used_accuracy` (Phase 3 routing correctness)
+- Memory / route metrics computed directly via `retrieve_memory()` + `route_query()` so they remain meaningful even without API keys
+- Respects existing `rate_limit()` by sleeping 2.1s between cases
+- Writes `eval/eval_results.json` with full per-case detail for run-to-run diffing
+- No new dependencies; no changes to `app.py`, chain logic, retrieval, memory, routing, UI, or output schema
+
 ## 2026-04-13 — Phase 3: Decision Routing Layer
 
 - Added `classify_query()` — pure heuristic classifier returning `"case-based"`, `"sop_doc"`, or `"general"` (no LLM call, no new deps)

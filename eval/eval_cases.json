@@ -1,0 +1,82 @@
+[
+  {
+    "id": "EVAL-001",
+    "query": "ILD 厚度 偏薄 8% 49點 map 中心偏低",
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": true,
+    "expected_route_used": "memory",
+    "tag": "memory-hit"
+  },
+  {
+    "id": "EVAL-002",
+    "query": "poly particle count 偏高 超過 spec 上限 wafer 邊緣集中",
+    "expected_anomaly_type": "particle_count",
+    "expected_memory_used": true,
+    "expected_route_used": "memory",
+    "tag": "memory-hit"
+  },
+  {
+    "id": "EVAL-003",
+    "query": "oxide etch rate drift 偏高 12% target",
+    "expected_anomaly_type": "etch_rate_drift",
+    "expected_memory_used": true,
+    "expected_route_used": "memory",
+    "tag": "memory-hit"
+  },
+  {
+    "id": "EVAL-004",
+    "query": "metal1 pvd 靶材 濺射功率 片內邊緣差異 fail",
+    "expected_anomaly_type": "uniformity_fail",
+    "expected_memory_used": true,
+    "expected_route_used": "memory",
+    "tag": "memory-hit"
+  },
+  {
+    "id": "EVAL-005",
+    "query": "poly furnace 擴散爐 dopant sheet resistance 偏高",
+    "expected_anomaly_type": "sheet_resistance",
+    "expected_memory_used": true,
+    "expected_route_used": "memory",
+    "tag": "memory-hit"
+  },
+  {
+    "id": "EVAL-006",
+    "query": "黃光 photolithography sop 步驟 定義",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "tag": "sop-doc"
+  },
+  {
+    "id": "EVAL-007",
+    "query": "stepper 曝光機 維護 手冊 流程",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "tag": "sop-doc"
+  },
+  {
+    "id": "EVAL-008",
+    "query": "請解釋 numerical aperture 原理",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "tag": "general"
+  },
+  {
+    "id": "EVAL-009",
+    "query": "晶圓廠 yield learning 方法論",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "tag": "general"
+  },
+  {
+    "id": "EVAL-010",
+    "query": "CMP slurry 化學成分分類",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "tag": "general"
+  }
+]
