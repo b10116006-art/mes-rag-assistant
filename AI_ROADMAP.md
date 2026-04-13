@@ -126,6 +126,28 @@
 
 ---
 
+## Phase 4.6: Query Rewrite Layer
+
+**Status:** Implemented (heuristic MVP). LLM-based rewrite deferred to Phase 3+/Phase 4 Advanced RAG.
+
+**Objective:** Improve retrieval recall on short or ambiguous queries by expanding them with class-specific engineering vocabulary before they hit the vector store.
+
+**Why it matters:** Engineer shorthand (`"ILD 偏薄"`, `"PVD 靶材"`) often lacks enough surface terms for the multilingual embedding model to land on the right chunks. A small deterministic vocabulary expansion is cheap insurance.
+
+**Acceptance criteria:**
+- `rewrite_query()` pure heuristic, no LLM, no new deps ✅
+- Used only for retrieval/context — never replaces user-visible input ✅
+- Original query preserved verbatim at head of rewritten string ✅
+- Memory and routing logic untouched ✅
+- Structured output exposes `original_query` + `rewritten_query` ✅
+
+**Deferred to later phases:**
+- LLM-based rewrite (resolves implicit context like layer / machine / step)
+- A/B measurement of rewrite impact on `route_used_accuracy` and `anomaly_type_accuracy` from Phase 4 eval
+- Per-class vocabulary tuning against the Phase 4 benchmark
+
+---
+
 ## Phase 4.5: Hallucination Control / Trust Layer
 
 **Status:** Implemented. Additive-only trust signals landed on every structured analysis output.
@@ -147,16 +169,25 @@
 
 ---
 
-## Phase 5: Decision Engine
+## Phase 5: Decision Engine / Trust Layer
+
+**Status:** Trust scoring landed (heuristic MVP). Ranking of root-cause candidates and reasoning-field generation remain open.
 
 **Objective:** Add ranking, confidence scoring, and basic explainability to the LLM output.
 
 **Why it matters:** A bare LLM answer is not an auditable engineering decision. Ranking and explanation make the output trustworthy.
 
 **Acceptance criteria:**
-- Root cause candidates ranked by confidence
-- Recommended actions include reasoning field
-- Confidence threshold configurable
+- Trust score / trust level / trust reason attached to every structured analysis output ✅
+- Trust score / trust level surfaced in chat-mode header across all 5 branches ✅
+- Root cause candidates ranked by confidence (deferred)
+- Recommended actions include reasoning field (deferred)
+- Confidence threshold configurable (deferred)
+
+**Deferred to later phases:**
+- Calibrate baseline and deltas against Phase 4 evaluation dataset
+- Weight `confidence` into the score once LLM-reported confidence is calibrated (Phase 3+/4 Advanced RAG)
+- LLM-as-judge validation of `trust_reason` coherence
 
 ---
 

@@ -381,6 +381,31 @@ def route_query(query: str, memory_hit: bool) -> tuple:
         return "rag", "SOP/doc query, routed to RAG retrieval", qclass
     return "llm", "no memory hit, fallback to LLM+RAG", qclass
 
+# --- Phase 4.6: Query Rewrite Layer ---
+
+def rewrite_query(query: str, query_class: str) -> str:
+    """
+    Rewrite a user query into a more retrieval-friendly phrasing.
+    Pure heuristic — no LLM call, no new dependency.
+
+    The original query is preserved verbatim at the head of the output, so all
+    original key terms (layer, machine id, anomaly words) remain searchable.
+    A class-specific suffix appends engineering vocabulary that improves vector
+    recall without deleting original terms. For `general` queries the rewrite
+    is a conservative no-op.
+
+    This function only produces a retrieval string; it does not replace the
+    user-visible input, and it is not used by memory retrieval or routing.
+    """
+    q = (query or "").strip()
+    if not q:
+        return q
+    if query_class == "case-based":
+        return f"{q} | 半導體製程異常分析 anomaly root cause process deviation"
+    if query_class == "sop_doc":
+        return f"{q} | SOP 標準作業程序 規範 spec procedure guideline"
+    return q
+
 # --- Phase 4.5: Hallucination Control / Trust Signals ---
 
 def compute_trust_signals(mem_ids, route_used, provider_label, anomaly_type, confidence):
@@ -433,6 +458,57 @@ def compute_trust_signals(mem_ids, route_used, provider_label, anomaly_type, con
         "uncertainty_flag": uncertainty_flag,
     }
 
+# --- Phase 5: Decision Trust Score ---
+
+def compute_trust_score(matched_case_ids, route_used, confidence, evidence_sources, provider_used):
+    """
+    Heuristic trust score combining Phase 1/3/4.5 signals.
+
+    Starts from a neutral baseline of 0.5 and applies additive deltas from
+    the spec, clamped to [0.0, 1.0]. The `confidence` parameter is accepted
+    for forward compatibility — the current spec does not weight it, but the
+    signature matches the task contract so later phases can tune without
+    re-threading parameters.
+
+    Returns a dict with:
+      - trust_score: float in [0, 1], rounded to 2 decimals
+      - trust_level: "HIGH" (>=0.75) / "MEDIUM" (>=0.5) / "LOW" (<0.5)
+      - trust_reason: short string listing which deltas fired
+    """
+    score = 0.5
+    reasons = []
+
+    if matched_case_ids:
+        score += 0.4
+        reasons.append("memory match (+0.4)")
+    if route_used == "rag":
+        score += 0.2
+        reasons.append("route=rag (+0.2)")
+    if route_used == "llm":
+        score -= 0.2
+        reasons.append("route=llm (-0.2)")
+    if "fallback" in (provider_used or "").lower():
+        score -= 0.2
+        reasons.append("fallback provider (-0.2)")
+    if evidence_sources:
+        score += 0.2
+        reasons.append("evidence present (+0.2)")
+
+    score = max(0.0, min(1.0, score))
+
+    if score >= 0.75:
+        level = "HIGH"
+    elif score >= 0.5:
+        level = "MEDIUM"
+    else:
+        level = "LOW"
+
+    return {
+        "trust_score": round(score, 2),
+        "trust_level": level,
+        "trust_reason": "; ".join(reasons) if reasons else "neutral baseline, no signals",
+    }
+
 def run_chat_with_mode(message, mode="auto"):
     if not message.strip():
         return "請輸入問題"
@@ -448,21 +524,33 @@ def run_chat_with_mode(message, mode="auto"):
 
     mem_records = retrieve_memory(message)
     mem_block = format_memory_context(mem_records)
-    effective_message = f"{mem_block}\n\n{message}" if mem_block else message
     mem_used = len(mem_records) > 0
     mem_ids = [r["case_id"] for r in mem_records]
     route_used, decision_reason, _qclass = route_query(message, mem_used)
+    rewritten_message = rewrite_query(message, _qclass)
+    effective_message = f"{mem_block}\n\n{rewritten_message}" if mem_block else rewritten_message
     _mhdr = f"【memory_used: {'true' if mem_used else 'false'}】"
     if mem_ids:
         _mhdr += f"\n【matched_case_ids: {', '.join(mem_ids)}】"
-    _mhdr += f"\n【route_used: {route_used}】\n【decision_reason: {decision_reason}】\n"
+    _mhdr += f"\n【route_used: {route_used}】\n【decision_reason: {decision_reason}】"
+    if rewritten_message != message:
+        _mhdr += f"\n【rewritten_query: {rewritten_message}】"
+    _mhdr += "\n"
+
+    _chat_evidence = [f"memory:{cid}" for cid in mem_ids]
+    if route_used == "rag":
+        _chat_evidence.append("rag:multi-query-retriever")
+
+    def _trust_lines(provider_label):
+        d = compute_trust_score(mem_ids, route_used, 1.0, _chat_evidence, provider_label)
+        return f"【trust_score: {d['trust_score']}】\n【trust_level: {d['trust_level']}】\n"
 
     if mode == "gemini":
         if "gemini" not in chat_chains:
             return "❌ Gemini 未設定"
         try:
             answer = invoke_with_retry(chat_chains["gemini"], effective_message, provider_name="gemini", retries=1, cooldown=1.2)
-            return f"{_mhdr}【provider_used: {GEMINI_MODEL}】\n【mode: gemini】\n\n{answer}"
+            return f"{_mhdr}【provider_used: {GEMINI_MODEL}】\n【mode: gemini】\n{_trust_lines(GEMINI_MODEL)}\n{answer}"
         except Exception as e:
             return f"❌ Gemini 專用模式失敗：{e}"
 
@@ -471,7 +559,7 @@ def run_chat_with_mode(message, mode="auto"):
             return "❌ OpenAI 未設定"
         try:
             answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
-            return f"{_mhdr}【provider_used: gpt-4o-mini】\n【mode: openai】\n\n{answer}"
+            return f"{_mhdr}【provider_used: gpt-4o-mini】\n【mode: openai】\n{_trust_lines('gpt-4o-mini')}\n{answer}"
         except Exception as e:
             return f"❌ OpenAI 專用模式失敗：{e}"
 
@@ -479,13 +567,13 @@ def run_chat_with_mode(message, mode="auto"):
     if "gemini" in chat_chains:
         try:
             answer = invoke_with_retry(chat_chains["gemini"], effective_message, provider_name="gemini", retries=1, cooldown=1.2)
-            return f"{_mhdr}【provider_used: {GEMINI_MODEL}】\n【mode: auto】\n\n{answer}"
+            return f"{_mhdr}【provider_used: {GEMINI_MODEL}】\n【mode: auto】\n{_trust_lines(GEMINI_MODEL)}\n{answer}"
         except Exception as e:
             gemini_err = str(e)
             if "openai" in chat_chains and is_retryable_gemini_error(gemini_err):
                 try:
                     answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
-                    return f"{_mhdr}⚠️ Gemini 暫時忙碌或限流，已自動切換到 OpenAI gpt-4o-mini\n【provider_used: openai-fallback】\n【mode: auto】\n\n{answer}"
+                    return f"{_mhdr}⚠️ Gemini 暫時忙碌或限流，已自動切換到 OpenAI gpt-4o-mini\n【provider_used: openai-fallback】\n【mode: auto】\n{_trust_lines('openai-fallback')}\n{answer}"
                 except Exception as oe:
                     return f"❌ Gemini 與 OpenAI 都失敗。\nGemini: {gemini_err}\nOpenAI: {oe}"
             return f"❌ Gemini 錯誤：{gemini_err}"
@@ -493,7 +581,7 @@ def run_chat_with_mode(message, mode="auto"):
     if "openai" in chat_chains:
         try:
             answer = invoke_with_retry(chat_chains["openai"], effective_message, provider_name="openai", retries=0)
-            return f"{_mhdr}【provider_used: openai-only】\n【mode: auto】\n\n{answer}"
+            return f"{_mhdr}【provider_used: openai-only】\n【mode: auto】\n{_trust_lines('openai-only')}\n{answer}"
         except Exception as oe:
             return f"❌ OpenAI 錯誤：{oe}"
 
@@ -514,10 +602,12 @@ def run_analysis_with_mode(description, mode="auto"):
 
     mem_records = retrieve_memory(description)
     mem_block = format_memory_context(mem_records)
-    effective_description = f"{mem_block}\n\n{description}" if mem_block else description
     mem_used = len(mem_records) > 0
     mem_ids = [r["case_id"] for r in mem_records]
     route_used, decision_reason, _qclass = route_query(description, mem_used)
+    original_query = description
+    rewritten_query = rewrite_query(description, _qclass)
+    effective_description = f"{mem_block}\n\n{rewritten_query}" if mem_block else rewritten_query
 
     if mode == "gemini":
         if "gemini" not in analysis_chains:
@@ -541,10 +631,16 @@ def run_analysis_with_mode(description, mode="auto"):
                 "validation_passed": validation_passed,
                 "route_used": route_used,
                 "decision_reason": decision_reason,
+                "original_query": original_query,
+                "rewritten_query": rewritten_query,
             }
             output.update(compute_trust_signals(
                 mem_ids, route_used, output.get("provider_used"),
                 result.anomaly_type, result.confidence,
+            ))
+            output.update(compute_trust_score(
+                mem_ids, route_used, result.confidence,
+                output.get("evidence_sources"), output.get("provider_used"),
             ))
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -572,10 +668,16 @@ def run_analysis_with_mode(description, mode="auto"):
                 "validation_passed": validation_passed,
                 "route_used": route_used,
                 "decision_reason": decision_reason,
+                "original_query": original_query,
+                "rewritten_query": rewritten_query,
             }
             output.update(compute_trust_signals(
                 mem_ids, route_used, output.get("provider_used"),
                 result.anomaly_type, result.confidence,
+            ))
+            output.update(compute_trust_score(
+                mem_ids, route_used, result.confidence,
+                output.get("evidence_sources"), output.get("provider_used"),
             ))
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -602,10 +704,16 @@ def run_analysis_with_mode(description, mode="auto"):
                 "validation_passed": validation_passed,
                 "route_used": route_used,
                 "decision_reason": decision_reason,
+                "original_query": original_query,
+                "rewritten_query": rewritten_query,
             }
             output.update(compute_trust_signals(
                 mem_ids, route_used, output.get("provider_used"),
                 result.anomaly_type, result.confidence,
+            ))
+            output.update(compute_trust_score(
+                mem_ids, route_used, result.confidence,
+                output.get("evidence_sources"), output.get("provider_used"),
             ))
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -631,10 +739,16 @@ def run_analysis_with_mode(description, mode="auto"):
                         "validation_passed": validation_passed,
                         "route_used": route_used,
                         "decision_reason": decision_reason,
+                        "original_query": original_query,
+                        "rewritten_query": rewritten_query,
                     }
                     output.update(compute_trust_signals(
                         mem_ids, route_used, output.get("provider_used"),
                         result.anomaly_type, result.confidence,
+                    ))
+                    output.update(compute_trust_score(
+                        mem_ids, route_used, result.confidence,
+                        output.get("evidence_sources"), output.get("provider_used"),
                     ))
                     return json.dumps(output, ensure_ascii=False, indent=2)
                 except Exception as oe:
@@ -661,10 +775,16 @@ def run_analysis_with_mode(description, mode="auto"):
                 "validation_passed": validation_passed,
                 "route_used": route_used,
                 "decision_reason": decision_reason,
+                "original_query": original_query,
+                "rewritten_query": rewritten_query,
             }
             output.update(compute_trust_signals(
                 mem_ids, route_used, output.get("provider_used"),
                 result.anomaly_type, result.confidence,
+            ))
+            output.update(compute_trust_score(
+                mem_ids, route_used, result.confidence,
+                output.get("evidence_sources"), output.get("provider_used"),
             ))
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as oe:

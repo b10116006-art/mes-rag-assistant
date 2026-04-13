@@ -124,6 +124,56 @@ Three additive metadata fields now accompany every structured analysis output. T
 
 All Phase 1/2/3 fields (`memory_used`, `matched_case_ids`, `schema_version`, `validation_passed`, `route_used`, `decision_reason`) remain unchanged. The Pydantic `MESAnalysisOutput` schema itself is untouched — trust fields are added to the output dict only, preserving strict schema adherence.
 
+## Phase 4.6 query rewrite layer (implemented)
+
+A pure heuristic rewrite step runs between query classification and chain invocation. It does **not** rewrite the prompt template itself — it expands the *retrieval input* with extra vocabulary so that vector recall is more likely to hit relevant chunks, while keeping the original user terms intact.
+
+**Rewrite rules (`rewrite_query`):**
+- `case-based` → `"{original} | 半導體製程異常分析 anomaly root cause process deviation"`
+- `sop_doc` → `"{original} | SOP 標準作業程序 規範 spec procedure guideline"`
+- `general` → no-op (returned unchanged)
+
+**Key properties:**
+- Original query is always the leftmost substring of the rewritten output, so layer / machine / anomaly terms remain searchable.
+- Memory retrieval still uses the **original** query (memory/routing logic unchanged per phase constraint).
+- The rewritten query is used only for RAG retrieval + prompt context. The user-visible input in the Gradio UI is never modified.
+- No LLM call is made inside the rewrite step.
+
+**Debug surface:**
+- Chat mode: `【rewritten_query: ...】` header line appears only when the rewrite differs from the original.
+- Analysis mode: adds `original_query` and `rewritten_query` fields to the structured output dict alongside Phase 1/2/3/4.5 fields.
+
+## Phase 5 decision trust layer (implemented)
+
+A heuristic trust score is computed after the Phase 4.5 trust signals are attached, consuming only fields already on the output dict. It runs post-LLM, pre-serialization — no new retrieval, no new LLM call.
+
+**Scoring (`compute_trust_score`)** — neutral 0.5 baseline, clamped to `[0, 1]`:
+
+| Signal | Delta |
+|---|---|
+| `matched_case_ids` non-empty | **+0.4** |
+| `route_used == "rag"` | **+0.2** |
+| `route_used == "llm"` | **−0.2** |
+| `"fallback" in provider_used` | **−0.2** |
+| `evidence_sources` non-empty | **+0.2** |
+
+**Bucketing:**
+- `HIGH` — `trust_score ≥ 0.75`
+- `MEDIUM` — `0.5 ≤ trust_score < 0.75`
+- `LOW` — `trust_score < 0.5`
+
+**Analysis mode — fields added to output dict:**
+- `trust_score: float` (2-decimal)
+- `trust_level: str`
+- `trust_reason: str` — `"; "`-joined list of deltas that fired
+
+**Chat mode — header trace:**
+- Adds `【trust_score: ...】` + `【trust_level: ...】` lines after the existing `【mode: ...】` line in every chat response
+- Each branch passes its own `provider_label` (including `"openai-fallback"` in the auto-fallback path) so the `-0.2` fallback delta applies exactly where it should
+- `trust_reason` is intentionally omitted from chat mode to keep the header compact — it remains available on the analysis-mode JSON output
+
+The `confidence` parameter is part of the helper signature for forward compatibility but is not weighted in the current scoring rules. All Phase 1/2/3/4.5/4.6 fields (`memory_used`, `matched_case_ids`, `schema_version`, `validation_passed`, `route_used`, `decision_reason`, `evidence_sources`, `confidence_reason`, `uncertainty_flag`, `original_query`, `rewritten_query`) are preserved unchanged. The Pydantic `MESAnalysisOutput` schema itself is untouched.
+
 ## Planned prompt changes
 
-- **Phase 5:** Add explicit reasoning / ranking instructions to analysis prompt
+- Add explicit reasoning / ranking instructions to analysis prompt (future phase)

@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-04-14 — Phase 5: Decision Trust Layer
+
+- New helper `compute_trust_score(matched_case_ids, route_used, confidence, evidence_sources, provider_used)` — pure heuristic, no LLM, no new deps
+- Scoring: starts from 0.5 neutral baseline, applies additive deltas, clamps to [0, 1]:
+  - `+0.4` if memory matched (`matched_case_ids` non-empty)
+  - `+0.2` if `route_used == "rag"`
+  - `-0.2` if `route_used == "llm"`
+  - `-0.2` if `"fallback" in provider_used`
+  - `+0.2` if `evidence_sources` non-empty
+- Adds three additive fields to every structured analysis output:
+  - `trust_score: float` (2-decimal, 0–1)
+  - `trust_level: str` — `HIGH` (≥0.75) / `MEDIUM` (≥0.5) / `LOW` (<0.5)
+  - `trust_reason: str` — short explanation listing which deltas fired
+- **Analysis mode:** injected via `output.update(compute_trust_score(...))` immediately after `compute_trust_signals` in all 5 analysis branches
+- **Chat mode:** nested `_trust_lines(provider_label)` closure called per return branch; emits `【trust_score: ...】` + `【trust_level: ...】` header lines after the existing `【mode: ...】` line in all 5 chat branches, with provider-specific score so the fallback branch correctly reflects the `-0.2` penalty
+- The `confidence` parameter is accepted for forward compatibility but not weighted in the current scoring (matches task contract)
+- No changes to `MESAnalysisOutput` schema, chain construction, retrieval, memory, routing, query rewrite, evaluation script, or UI
+
+## 2026-04-13 — Phase 4.6: Query Rewrite Layer
+
+- New helper `rewrite_query(query, query_class) -> str` — pure heuristic, no LLM call, no new deps
+- Rewrite strategy per Phase 3 query class:
+  - `case-based` → appends `"半導體製程異常分析 anomaly root cause process deviation"` vocabulary
+  - `sop_doc` → appends `"SOP 標準作業程序 規範 spec procedure guideline"` vocabulary
+  - `general` → no-op (conservative, avoids over-expansion)
+- Original query is always preserved verbatim at the head of the rewritten string, so layer / machine / anomaly terms stay searchable
+- Integration point: after `route_query()`, before chain invocation. Memory retrieval and routing still use the **original** query (memory/routing logic untouched per constraint)
+- Chat mode: adds optional `【rewritten_query: ...】` header line only when the rewrite actually differs from the original
+- Analysis mode: adds `original_query` + `rewritten_query` to all 5 structured output dicts
+- No changes to `MESAnalysisOutput` schema, chain construction, memory logic, routing logic, evaluation script, or UI
+
 ## 2026-04-13 — Phase 4.5: Hallucination Control Layer
 
 - Added three additive trustworthiness fields to all structured analysis outputs:
