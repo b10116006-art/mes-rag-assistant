@@ -340,6 +340,47 @@ def invoke_analysis_validated(chain, text, provider_name="gemini", retries=1, co
             return result, False
         raise
 
+# --- Phase 3: Decision Routing Layer ---
+
+_SOP_DOC_MARKERS = (
+    "sop", "規範", "規格", "標準作業", "文件", "手冊", "流程", "步驟",
+    "參數設定", "限值", "spec", "procedure", "guideline", "定義",
+)
+
+def classify_query(query: str) -> str:
+    """
+    Classify a query into one of:
+      - "case-based" — user describes a specific anomaly / incident
+      - "sop_doc"    — user asks about SOP / spec / documentation
+      - "general"    — everything else
+    Pure heuristic, no LLM call. Additive debug signal only.
+    """
+    q = (query or "").lower()
+    if any(m in q for m in _SOP_DOC_MARKERS):
+        return "sop_doc"
+    case_markers = ("異常", "偏", "ood", "drift", "fail", "超標", "异常", "掉", "偏低", "偏高")
+    if any(m in q for m in case_markers):
+        return "case-based"
+    return "general"
+
+def route_query(query: str, memory_hit: bool) -> tuple:
+    """
+    Decide which knowledge source dominates this query.
+    Returns (route_used, decision_reason, query_class).
+      - memory → case-based AND memory matched
+      - rag    → sop_doc query (doc retrieval dominates)
+      - llm    → fallback (general question, no memory hit)
+    Routing is a debug signal; the underlying chain still combines memory+RAG+LLM.
+    """
+    qclass = classify_query(query)
+    if memory_hit and qclass == "case-based":
+        return "memory", "case-based query with memory match", qclass
+    if memory_hit:
+        return "memory", f"memory match on {qclass} query", qclass
+    if qclass == "sop_doc":
+        return "rag", "SOP/doc query, routed to RAG retrieval", qclass
+    return "llm", "no memory hit, fallback to LLM+RAG", qclass
+
 def run_chat_with_mode(message, mode="auto"):
     if not message.strip():
         return "請輸入問題"
@@ -358,10 +399,11 @@ def run_chat_with_mode(message, mode="auto"):
     effective_message = f"{mem_block}\n\n{message}" if mem_block else message
     mem_used = len(mem_records) > 0
     mem_ids = [r["case_id"] for r in mem_records]
+    route_used, decision_reason, _qclass = route_query(message, mem_used)
     _mhdr = f"【memory_used: {'true' if mem_used else 'false'}】"
     if mem_ids:
         _mhdr += f"\n【matched_case_ids: {', '.join(mem_ids)}】"
-    _mhdr += "\n"
+    _mhdr += f"\n【route_used: {route_used}】\n【decision_reason: {decision_reason}】\n"
 
     if mode == "gemini":
         if "gemini" not in chat_chains:
@@ -423,6 +465,7 @@ def run_analysis_with_mode(description, mode="auto"):
     effective_description = f"{mem_block}\n\n{description}" if mem_block else description
     mem_used = len(mem_records) > 0
     mem_ids = [r["case_id"] for r in mem_records]
+    route_used, decision_reason, _qclass = route_query(description, mem_used)
 
     if mode == "gemini":
         if "gemini" not in analysis_chains:
@@ -444,6 +487,8 @@ def run_analysis_with_mode(description, mode="auto"):
                 "matched_case_ids": mem_ids,
                 "schema_version": SCHEMA_VERSION,
                 "validation_passed": validation_passed,
+                "route_used": route_used,
+                "decision_reason": decision_reason,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -469,6 +514,8 @@ def run_analysis_with_mode(description, mode="auto"):
                 "matched_case_ids": mem_ids,
                 "schema_version": SCHEMA_VERSION,
                 "validation_passed": validation_passed,
+                "route_used": route_used,
+                "decision_reason": decision_reason,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -493,6 +540,8 @@ def run_analysis_with_mode(description, mode="auto"):
                 "matched_case_ids": mem_ids,
                 "schema_version": SCHEMA_VERSION,
                 "validation_passed": validation_passed,
+                "route_used": route_used,
+                "decision_reason": decision_reason,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -540,6 +589,8 @@ def run_analysis_with_mode(description, mode="auto"):
                 "matched_case_ids": mem_ids,
                 "schema_version": SCHEMA_VERSION,
                 "validation_passed": validation_passed,
+                "route_used": route_used,
+                "decision_reason": decision_reason,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as oe:

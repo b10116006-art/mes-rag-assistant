@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-04-13 — Phase 3: Decision Routing Layer
+
+- Added `classify_query()` — pure heuristic classifier returning `"case-based"`, `"sop_doc"`, or `"general"` (no LLM call, no new deps)
+- Added `route_query()` — returns `(route_used, decision_reason, query_class)`:
+  - `memory` → memory retrieval matched the query
+  - `rag` → SOP/doc query, RAG retrieval dominates
+  - `llm` → fallback (general question, no memory hit)
+- Chat mode: injects `【route_used: ...】` / `【decision_reason: ...】` into existing header (additive, no schema break)
+- Analysis mode: adds `route_used` + `decision_reason` fields to all 5 output dicts alongside Phase 2 fields
+- Routing is a debug signal only — underlying chains (memory + RAG + LLM) are unchanged
+- No changes to `MESAnalysisOutput` schema, chain construction, retrieval logic, memory layer, or UI
+
 ## 2026-04-13 — Phase 2: Structured Decision Output
 
 - Added `SCHEMA_VERSION = "1.0"` constant and `"schema_version"` field to all 5 analysis output dicts
