@@ -29,7 +29,7 @@ try:
 except ImportError:
     from langchain.retrievers import MultiQueryRetriever
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from typing import List
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -302,6 +302,44 @@ def invoke_with_retry(chain, text, provider_name="gemini", retries=1, cooldown=1
             raise last_err
     raise last_err
 
+# --- Phase 2: Structured Output Hardening ---
+
+SCHEMA_VERSION = "1.0"
+
+_PARSE_ERROR_MARKERS = (
+    "validationerror", "pydantic", "outputparserexception",
+    "failed to parse", "json", "schema", "missing", "invalid",
+)
+
+def _is_parse_error(exc: Exception) -> bool:
+    """True if exc looks like a structured-output parse/validation error (not network/quota)."""
+    if isinstance(exc, ValidationError):
+        return True
+    err_text = str(exc)
+    if is_retryable_gemini_error(err_text):
+        return False
+    lowered = err_text.lower()
+    return any(m in lowered for m in _PARSE_ERROR_MARKERS)
+
+def invoke_analysis_validated(chain, text, provider_name="gemini", retries=1, cooldown=1.2):
+    """
+    Wraps invoke_with_retry for analysis chains. Preserves existing network retry,
+    and additionally retries ONCE on parse/validation errors.
+    Returns (result, validation_passed) where validation_passed is:
+      - True  — first attempt returned a valid structured result
+      - False — first attempt failed parse/validation, but the extra retry succeeded
+    Raises the final exception if both attempts fail (existing error path handles it).
+    """
+    try:
+        result = invoke_with_retry(chain, text, provider_name=provider_name, retries=retries, cooldown=cooldown)
+        return result, True
+    except Exception as e:
+        if _is_parse_error(e):
+            print(f"PARSE ERROR on first attempt, retrying once: {e}")
+            result = invoke_with_retry(chain, text, provider_name=provider_name, retries=0)
+            return result, False
+        raise
+
 def run_chat_with_mode(message, mode="auto"):
     if not message.strip():
         return "請輸入問題"
@@ -390,7 +428,7 @@ def run_analysis_with_mode(description, mode="auto"):
         if "gemini" not in analysis_chains:
             return "❌ Gemini 未設定"
         try:
-            result: MESAnalysisOutput = invoke_with_retry(
+            result, validation_passed = invoke_analysis_validated(
                 analysis_chains["gemini"], effective_description, provider_name="gemini", retries=1, cooldown=1.2
             )
             output = {
@@ -404,6 +442,8 @@ def run_analysis_with_mode(description, mode="auto"):
                 "recommended_actions": result.recommended_actions,
                 "memory_used": mem_used,
                 "matched_case_ids": mem_ids,
+                "schema_version": SCHEMA_VERSION,
+                "validation_passed": validation_passed,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -413,7 +453,7 @@ def run_analysis_with_mode(description, mode="auto"):
         if "openai" not in analysis_chains:
             return "❌ OpenAI 未設定"
         try:
-            result: MESAnalysisOutput = invoke_with_retry(
+            result, validation_passed = invoke_analysis_validated(
                 analysis_chains["openai"], effective_description, provider_name="openai", retries=0
             )
             output = {
@@ -427,6 +467,8 @@ def run_analysis_with_mode(description, mode="auto"):
                 "recommended_actions": result.recommended_actions,
                 "memory_used": mem_used,
                 "matched_case_ids": mem_ids,
+                "schema_version": SCHEMA_VERSION,
+                "validation_passed": validation_passed,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -435,7 +477,7 @@ def run_analysis_with_mode(description, mode="auto"):
     # auto mode
     if "gemini" in analysis_chains:
         try:
-            result: MESAnalysisOutput = invoke_with_retry(
+            result, validation_passed = invoke_analysis_validated(
                 analysis_chains["gemini"], effective_description, provider_name="gemini", retries=1, cooldown=1.2
             )
             output = {
@@ -449,13 +491,15 @@ def run_analysis_with_mode(description, mode="auto"):
                 "recommended_actions": result.recommended_actions,
                 "memory_used": mem_used,
                 "matched_case_ids": mem_ids,
+                "schema_version": SCHEMA_VERSION,
+                "validation_passed": validation_passed,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
             gemini_err = str(e)
             if "openai" in analysis_chains and is_retryable_gemini_error(gemini_err):
                 try:
-                    result: MESAnalysisOutput = invoke_with_retry(
+                    result, validation_passed = invoke_analysis_validated(
                         analysis_chains["openai"], effective_description, provider_name="openai", retries=0
                     )
                     output = {
@@ -470,6 +514,8 @@ def run_analysis_with_mode(description, mode="auto"):
                         "fallback_reason": gemini_err,
                         "memory_used": mem_used,
                         "matched_case_ids": mem_ids,
+                        "schema_version": SCHEMA_VERSION,
+                        "validation_passed": validation_passed,
                     }
                     return json.dumps(output, ensure_ascii=False, indent=2)
                 except Exception as oe:
@@ -478,7 +524,7 @@ def run_analysis_with_mode(description, mode="auto"):
 
     if "openai" in analysis_chains:
         try:
-            result: MESAnalysisOutput = invoke_with_retry(
+            result, validation_passed = invoke_analysis_validated(
                 analysis_chains["openai"], effective_description, provider_name="openai", retries=0
             )
             output = {
@@ -492,6 +538,8 @@ def run_analysis_with_mode(description, mode="auto"):
                 "recommended_actions": result.recommended_actions,
                 "memory_used": mem_used,
                 "matched_case_ids": mem_ids,
+                "schema_version": SCHEMA_VERSION,
+                "validation_passed": validation_passed,
             }
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as oe:

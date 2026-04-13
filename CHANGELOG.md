@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-04-13 — Phase 2: Structured Decision Output
+
+- Added `SCHEMA_VERSION = "1.0"` constant and `"schema_version"` field to all 5 analysis output dicts
+- Added `"validation_passed"` field (bool) to all 5 analysis output dicts
+- New helper `invoke_analysis_validated()` wraps `invoke_with_retry`:
+  - Preserves existing network-retry behavior unchanged
+  - Adds ONE additional retry specifically on parse/validation errors (catches `pydantic.ValidationError`, output-parser exceptions, or error text matching parse-error markers)
+  - Returns `(result, validation_passed)` — `True` if first attempt succeeded, `False` if a retry was needed
+- Added `ValidationError` to the existing `pydantic` import (additive only)
+- No changes to `MESAnalysisOutput` schema fields, existing chain structure, prompt templates, retrieval logic, memory layer, or UI
+
 ## 2026-04-13 — Phase 1: Memory observability signals
 
 - Added `memory_used` and `matched_case_ids` debug signals to both `run_chat_with_mode` and `run_analysis_with_mode`
