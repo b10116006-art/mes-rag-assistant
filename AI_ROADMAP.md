@@ -126,6 +126,27 @@
 
 ---
 
+## Phase 4.5: Hallucination Control / Trust Layer
+
+**Status:** Implemented. Additive-only trust signals landed on every structured analysis output.
+
+**Objective:** Give downstream consumers a minimal trust surface without refactoring retrieval or adding a second LLM pass.
+
+**Why it matters:** A structured decision without provenance is indistinguishable from a hallucination. Exposing *what grounded the answer* (memory / RAG), *why confidence is what it is*, and *when the answer may be unreliable* lets MES and human reviewers triage outputs without reading the full context.
+
+**Acceptance criteria:**
+- `evidence_sources`, `confidence_reason`, `uncertainty_flag` present on all analysis outputs ✅
+- No changes to `MESAnalysisOutput` Pydantic schema ✅
+- No new retrieval, no new LLM calls, no new dependencies ✅
+- Existing chat / analysis / eval paths unaffected ✅
+
+**Deferred to later phases:**
+- Plumbing concrete RAG doc source paths into `evidence_sources` (requires chain refactor to thread retrieved docs through to the output stage)
+- Calibrated confidence scoring (Phase 5 Decision Engine)
+- LLM-as-judge validation of `confidence_reason` coherence
+
+---
+
 ## Phase 5: Decision Engine
 
 **Objective:** Add ranking, confidence scoring, and basic explainability to the LLM output.
