@@ -381,6 +381,58 @@ def route_query(query: str, memory_hit: bool) -> tuple:
         return "rag", "SOP/doc query, routed to RAG retrieval", qclass
     return "llm", "no memory hit, fallback to LLM+RAG", qclass
 
+# --- Phase 4.5: Hallucination Control / Trust Signals ---
+
+def compute_trust_signals(mem_ids, route_used, provider_label, anomaly_type, confidence):
+    """
+    Derive additive trustworthiness fields from signals already available in
+    the request path. No new retrieval, no new LLM call, no schema changes.
+
+    Returns a dict with:
+      - evidence_sources: list[str]  — e.g. ["memory:MEM-001", "rag:multi-query-retriever"]
+      - confidence_reason: str       — short human-readable explanation
+      - uncertainty_flag: bool       — true if the answer may be weakly grounded
+    """
+    evidence_sources = [f"memory:{cid}" for cid in (mem_ids or [])]
+    if route_used == "rag":
+        evidence_sources.append("rag:multi-query-retriever")
+
+    reasons = []
+    if route_used == "memory" and mem_ids:
+        reasons.append(f"memory match on {len(mem_ids)} historical case(s)")
+    elif route_used == "rag":
+        reasons.append("routed to SOP/doc retrieval, no memory match")
+    else:
+        reasons.append("no memory hit, relying on LLM + general RAG context")
+
+    provider_lower = (provider_label or "").lower()
+    is_fallback = "fallback" in provider_lower
+    if is_fallback:
+        reasons.append("fallback provider used")
+
+    try:
+        conf = float(confidence)
+    except (TypeError, ValueError):
+        conf = 1.0
+    if conf < 0.5:
+        reasons.append("low model confidence")
+
+    confidence_reason = "; ".join(reasons)
+
+    uncertainty_flag = False
+    if route_used == "llm" and not mem_ids:
+        uncertainty_flag = True
+    if is_fallback:
+        uncertainty_flag = True
+    if anomaly_type == "general" and conf < 0.6:
+        uncertainty_flag = True
+
+    return {
+        "evidence_sources": evidence_sources,
+        "confidence_reason": confidence_reason,
+        "uncertainty_flag": uncertainty_flag,
+    }
+
 def run_chat_with_mode(message, mode="auto"):
     if not message.strip():
         return "請輸入問題"
@@ -490,6 +542,10 @@ def run_analysis_with_mode(description, mode="auto"):
                 "route_used": route_used,
                 "decision_reason": decision_reason,
             }
+            output.update(compute_trust_signals(
+                mem_ids, route_used, output.get("provider_used"),
+                result.anomaly_type, result.confidence,
+            ))
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
             return f"❌ Gemini 專用模式分析失敗：{e}"
@@ -517,6 +573,10 @@ def run_analysis_with_mode(description, mode="auto"):
                 "route_used": route_used,
                 "decision_reason": decision_reason,
             }
+            output.update(compute_trust_signals(
+                mem_ids, route_used, output.get("provider_used"),
+                result.anomaly_type, result.confidence,
+            ))
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
             return f"❌ OpenAI 專用模式分析失敗：{e}"
@@ -543,6 +603,10 @@ def run_analysis_with_mode(description, mode="auto"):
                 "route_used": route_used,
                 "decision_reason": decision_reason,
             }
+            output.update(compute_trust_signals(
+                mem_ids, route_used, output.get("provider_used"),
+                result.anomaly_type, result.confidence,
+            ))
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
             gemini_err = str(e)
@@ -565,7 +629,13 @@ def run_analysis_with_mode(description, mode="auto"):
                         "matched_case_ids": mem_ids,
                         "schema_version": SCHEMA_VERSION,
                         "validation_passed": validation_passed,
+                        "route_used": route_used,
+                        "decision_reason": decision_reason,
                     }
+                    output.update(compute_trust_signals(
+                        mem_ids, route_used, output.get("provider_used"),
+                        result.anomaly_type, result.confidence,
+                    ))
                     return json.dumps(output, ensure_ascii=False, indent=2)
                 except Exception as oe:
                     return f"❌ Gemini 與 OpenAI 都失敗。\nGemini: {gemini_err}\nOpenAI: {oe}"
@@ -592,6 +662,10 @@ def run_analysis_with_mode(description, mode="auto"):
                 "route_used": route_used,
                 "decision_reason": decision_reason,
             }
+            output.update(compute_trust_signals(
+                mem_ids, route_used, output.get("provider_used"),
+                result.anomaly_type, result.confidence,
+            ))
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as oe:
             return f"❌ OpenAI 分析失敗：{oe}"

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-04-13 — Phase 4.5: Hallucination Control Layer
+
+- Added three additive trustworthiness fields to all structured analysis outputs:
+  - `evidence_sources: list[str]` — e.g. `["memory:MEM-001", "rag:multi-query-retriever"]`
+  - `confidence_reason: str` — short human-readable explanation referencing memory match, routing, fallback, and model confidence
+  - `uncertainty_flag: bool` — true when the answer may be weakly grounded (no memory hit + route=llm, fallback provider in use, or general-type answer with low confidence)
+- New helper `compute_trust_signals()` derives the three fields from signals already in the request path (mem_ids, route_used, provider_used, `result.anomaly_type`, `result.confidence`). No new retrieval, no new LLM call, no new dependencies.
+- Trust signals injected via `output.update(...)` immediately before `json.dumps` in all 5 analysis branches (gemini / openai / auto-gemini / auto-openai-fallback / openai-only).
+- Fixed a latent omission: the nested `openai-fallback` branch in auto mode was missing Phase 3's `route_used` / `decision_reason` fields (the earlier `replace_all` pass did not match its deeper indent). Now consistent with the other 4 branches.
+- No changes to `MESAnalysisOutput` schema, chain construction, retrieval, memory, routing, UI, evaluation script, or existing fields.
+
 ## 2026-04-13 — Phase 4: Evaluation Layer (MVP)
 
 - Added local evaluation utility under `eval/` — not wired into runtime or UI

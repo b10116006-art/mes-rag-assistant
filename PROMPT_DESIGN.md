@@ -102,6 +102,28 @@ A lightweight heuristic routing step runs before the chain is invoked. It does n
 
 Routing is observational only. The chain itself still wires memory context + RAG retrieval + LLM together unchanged, preserving the Phase 1/2 contract. `MESAnalysisOutput` schema is untouched.
 
+## Phase 4.5 hallucination control / trust signals (implemented)
+
+Three additive metadata fields now accompany every structured analysis output. They are derived **post-LLM, pre-serialization** from signals already present in the request path — no new retrieval, no second LLM pass, and no prompt rewriting.
+
+- **`evidence_sources: list[str]`** — provenance markers for what actually fed the answer:
+  - `"memory:<case_id>"` for each memory record that matched the query
+  - `"rag:multi-query-retriever"` when `route_used == "rag"` (placeholder until doc source names are plumbed end-to-end; listing concrete doc paths requires refactoring the chain and is deferred to a future phase)
+  - Empty list `[]` if neither source contributed
+- **`confidence_reason: str`** — human-readable explanation composed from existing signals:
+  - memory match on N historical case(s)
+  - routed to SOP/doc retrieval, no memory match
+  - no memory hit, relying on LLM + general RAG context
+  - appended with `"fallback provider used"` when `provider_used` contains `"fallback"`
+  - appended with `"low model confidence"` when `result.confidence < 0.5`
+- **`uncertainty_flag: bool`** — additive heuristic:
+  - `True` if `route_used == "llm"` and no memory hit (weak grounding)
+  - `True` if the fallback provider was used (primary provider failed)
+  - `True` if `anomaly_type == "general"` and `confidence < 0.6`
+  - otherwise `False`
+
+All Phase 1/2/3 fields (`memory_used`, `matched_case_ids`, `schema_version`, `validation_passed`, `route_used`, `decision_reason`) remain unchanged. The Pydantic `MESAnalysisOutput` schema itself is untouched — trust fields are added to the output dict only, preserving strict schema adherence.
+
 ## Planned prompt changes
 
 - **Phase 5:** Add explicit reasoning / ranking instructions to analysis prompt
