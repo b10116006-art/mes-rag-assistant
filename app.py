@@ -21,7 +21,7 @@ from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers import StrOutputParser
 
 try:
@@ -163,6 +163,61 @@ def build_multi_query_retriever(llm):
         )
     )
 
+# --- Phase 6: Retrieval Rerank Layer ---
+
+_last_retrieval_debug = {
+    "retrieved_count": 0,
+    "reranked_count": 0,
+    "top_sources": [],
+}
+
+def rerank_docs(query: str, docs: list, top_n: int = 6) -> list:
+    """
+    Lightweight token-overlap rerank. No new dependencies — reuses the
+    _tokenize helper from the memory layer. Pure post-retrieval reordering;
+    does not replace the vector retriever.
+    """
+    if not docs:
+        return docs
+    q_tokens = _tokenize(query or "")
+    if not q_tokens:
+        return list(docs)[:top_n]
+    scored = []
+    for i, doc in enumerate(docs):
+        content = getattr(doc, "page_content", "") or ""
+        overlap = len(q_tokens & _tokenize(content))
+        scored.append((overlap, -i, doc))
+    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return [d for _, _, d in scored[:top_n]]
+
+def _extract_source_name(doc) -> str:
+    src = (getattr(doc, "metadata", {}) or {}).get("source", "")
+    if not src:
+        return "unknown"
+    return src.replace("\\", "/").split("/")[-1] or "unknown"
+
+def make_rerank_retriever(base_retriever, top_n: int = 6, top_sources_k: int = 3):
+    """
+    Wrap a base retriever so vector results are reranked by token overlap
+    with the query. Records retrieval debug signals in _last_retrieval_debug
+    for the run_* functions to read after chain.invoke returns.
+    """
+    def _retrieve_and_rerank(query):
+        docs = base_retriever.invoke(query)
+        reranked = rerank_docs(query, docs, top_n=top_n)
+        seen = []
+        for d in reranked:
+            name = _extract_source_name(d)
+            if name not in seen:
+                seen.append(name)
+            if len(seen) >= top_sources_k:
+                break
+        _last_retrieval_debug["retrieved_count"] = len(docs)
+        _last_retrieval_debug["reranked_count"] = len(reranked)
+        _last_retrieval_debug["top_sources"] = seen
+        return reranked
+    return RunnableLambda(_retrieve_and_rerank)
+
 def build_rag_system():
     global vectorstore, chat_chains, analysis_chains
 
@@ -243,14 +298,14 @@ etch_rate_drift / cd_shift / void_detected / general"""),
         gemini_llm = make_gemini_llm()
         gemini_retriever = build_multi_query_retriever(gemini_llm)
         chat_chains["gemini"] = (
-            {"context": gemini_retriever | format_docs, "question": RunnablePassthrough()}
+            {"context": make_rerank_retriever(gemini_retriever) | format_docs, "question": RunnablePassthrough()}
             | chat_prompt
             | gemini_llm
             | StrOutputParser()
         )
         gemini_structured = gemini_llm.with_structured_output(MESAnalysisOutput)
         analysis_chains["gemini"] = (
-            {"context": gemini_retriever | format_docs, "question": RunnablePassthrough()}
+            {"context": make_rerank_retriever(gemini_retriever) | format_docs, "question": RunnablePassthrough()}
             | analysis_prompt
             | gemini_structured
         )
@@ -259,14 +314,14 @@ etch_rate_drift / cd_shift / void_detected / general"""),
         openai_llm = make_openai_llm()
         openai_retriever = build_multi_query_retriever(openai_llm)
         chat_chains["openai"] = (
-            {"context": openai_retriever | format_docs, "question": RunnablePassthrough()}
+            {"context": make_rerank_retriever(openai_retriever) | format_docs, "question": RunnablePassthrough()}
             | chat_prompt
             | openai_llm
             | StrOutputParser()
         )
         openai_structured = openai_llm.with_structured_output(MESAnalysisOutput)
         analysis_chains["openai"] = (
-            {"context": openai_retriever | format_docs, "question": RunnablePassthrough()}
+            {"context": make_rerank_retriever(openai_retriever) | format_docs, "question": RunnablePassthrough()}
             | analysis_prompt
             | openai_structured
         )
@@ -642,6 +697,9 @@ def run_analysis_with_mode(description, mode="auto"):
                 mem_ids, route_used, result.confidence,
                 output.get("evidence_sources"), output.get("provider_used"),
             ))
+            output["retrieved_count"] = _last_retrieval_debug["retrieved_count"]
+            output["reranked_count"] = _last_retrieval_debug["reranked_count"]
+            output["top_sources"] = list(_last_retrieval_debug["top_sources"])
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
             return f"❌ Gemini 專用模式分析失敗：{e}"
@@ -679,6 +737,9 @@ def run_analysis_with_mode(description, mode="auto"):
                 mem_ids, route_used, result.confidence,
                 output.get("evidence_sources"), output.get("provider_used"),
             ))
+            output["retrieved_count"] = _last_retrieval_debug["retrieved_count"]
+            output["reranked_count"] = _last_retrieval_debug["reranked_count"]
+            output["top_sources"] = list(_last_retrieval_debug["top_sources"])
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
             return f"❌ OpenAI 專用模式分析失敗：{e}"
@@ -715,6 +776,9 @@ def run_analysis_with_mode(description, mode="auto"):
                 mem_ids, route_used, result.confidence,
                 output.get("evidence_sources"), output.get("provider_used"),
             ))
+            output["retrieved_count"] = _last_retrieval_debug["retrieved_count"]
+            output["reranked_count"] = _last_retrieval_debug["reranked_count"]
+            output["top_sources"] = list(_last_retrieval_debug["top_sources"])
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as e:
             gemini_err = str(e)
@@ -750,6 +814,9 @@ def run_analysis_with_mode(description, mode="auto"):
                         mem_ids, route_used, result.confidence,
                         output.get("evidence_sources"), output.get("provider_used"),
                     ))
+                    output["retrieved_count"] = _last_retrieval_debug["retrieved_count"]
+                    output["reranked_count"] = _last_retrieval_debug["reranked_count"]
+                    output["top_sources"] = list(_last_retrieval_debug["top_sources"])
                     return json.dumps(output, ensure_ascii=False, indent=2)
                 except Exception as oe:
                     return f"❌ Gemini 與 OpenAI 都失敗。\nGemini: {gemini_err}\nOpenAI: {oe}"
@@ -786,6 +853,9 @@ def run_analysis_with_mode(description, mode="auto"):
                 mem_ids, route_used, result.confidence,
                 output.get("evidence_sources"), output.get("provider_used"),
             ))
+            output["retrieved_count"] = _last_retrieval_debug["retrieved_count"]
+            output["reranked_count"] = _last_retrieval_debug["reranked_count"]
+            output["top_sources"] = list(_last_retrieval_debug["top_sources"])
             return json.dumps(output, ensure_ascii=False, indent=2)
         except Exception as oe:
             return f"❌ OpenAI 分析失敗：{oe}"

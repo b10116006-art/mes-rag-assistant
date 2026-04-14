@@ -126,6 +126,41 @@
 
 ---
 
+## Phase 6: Retrieval Quality Improvement
+
+**Status:** Implemented (heuristic MVP — token-overlap rerank). Stronger retrieval quality work is split into near-term and long-term buckets below.
+
+**Objective:** Improve retrieval ordering and observability without replacing the vector retriever or adding a new model dependency.
+
+**Why it matters:** MultiQueryRetriever boosts recall by generating 3 sub-queries, but the resulting docs are concatenated in an order that reflects neither query relevance nor diversity. A simple token-overlap rerank surfaces the most query-relevant chunks first, which matters because the LLM's effective context budget is dominated by the earliest chunks in the prompt. Debug signals let downstream consumers and evaluators see what the retriever actually produced.
+
+**Acceptance criteria:**
+- Rerank step runs after every retriever without touching the retriever itself ✅
+- Debug signals (`retrieved_count`, `reranked_count`, `top_sources`) exposed on analysis output ✅
+- Zero new dependencies ✅
+- Memory, routing, rewrite, trust, schema, and UI untouched ✅
+
+### Already planned next improvements (near-term)
+
+These are the concrete next steps that build directly on the Phase 6 MVP. Each is sized to fit the minimal-diff / additive-only discipline:
+
+1. **Reranking** — replace or augment the token-overlap scorer with a cross-encoder (e.g. `bge-reranker-base`) once a measurement harness proves it helps. Gated behind a flag so the heuristic remains the fallback.
+2. **Provenance / citation-grade evidence** — plumb real retrieved `Document` source paths and chunk offsets into `evidence_sources`, replacing the current `"rag:multi-query-retriever"` placeholder. Requires threading docs from the rerank stage to the output builder.
+3. **Multimodal document support** — accept PDF / image / scanned SOP inputs in the retrieval pipeline so source coverage isn't limited to pre-cleaned markdown. Extends `rag_data/` loaders without changing chain structure.
+4. **Stronger evaluation metrics** — extend `eval/run_eval.py` with recall@k, MRR, and per-class accuracy, graded against the Phase 4 labeled set. Needed before any rerank change can claim a real improvement.
+5. **Confidence calibration** — measure and correct the LLM-reported `confidence` field against eval outcomes, then wire the calibrated value into `compute_trust_score` (currently the `confidence` parameter is accepted but unweighted).
+
+### Long-term roadmap additions
+
+Larger workstreams that require dedicated design and likely touch more than one file at a time. These are explicitly out of scope for a minimal-diff phase:
+
+1. **Multimodal document understanding** — layout-aware PDF parsing, image + OCR pipeline for wafer maps and equipment screenshots, and a normalized chunk + metadata shape that downstream chains can consume without modification.
+2. **Document ingestion pipeline** — a standalone ingestion path (source crawl → parse → chunk → embed → index) that can be run offline and versioned separately from the serving code. Enables adding new sources without touching `app.py`.
+3. **Golden benchmark / expert-labeled evaluation set** — engineer-reviewed labels on real anomaly cases, with inter-rater agreement tracked. This is the only way to grade *decision quality* at the level MES consumers actually care about.
+4. **Consumer-side trust gating** — downstream surfaces (MES dashboard, operator UI) consume `trust_score` / `uncertainty_flag` / `evidence_sources` as first-class inputs to decide whether to display, warn, or suppress a recommendation. Requires an integration contract with the consuming repo, not just additive fields here.
+
+---
+
 ## Phase 4.6: Query Rewrite Layer
 
 **Status:** Implemented (heuristic MVP). LLM-based rewrite deferred to Phase 3+/Phase 4 Advanced RAG.
