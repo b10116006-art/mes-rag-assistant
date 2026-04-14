@@ -174,6 +174,25 @@ A heuristic trust score is computed after the Phase 4.5 trust signals are attach
 
 The `confidence` parameter is part of the helper signature for forward compatibility but is not weighted in the current scoring rules. All Phase 1/2/3/4.5/4.6 fields (`memory_used`, `matched_case_ids`, `schema_version`, `validation_passed`, `route_used`, `decision_reason`, `evidence_sources`, `confidence_reason`, `uncertainty_flag`, `original_query`, `rewritten_query`) are preserved unchanged. The Pydantic `MESAnalysisOutput` schema itself is untouched.
 
+## Phase 6 retrieval rerank layer (implemented)
+
+A lightweight rerank step runs between the MultiQueryRetriever and `format_docs`, inside every chain wiring. It does **not** replace the vector retriever — it reorders the docs the retriever already returned.
+
+**Scoring (`rerank_docs`):**
+- Score = token-overlap count between the query and `doc.page_content`, computed with the existing `_tokenize()` helper from the memory layer
+- Ties broken by original retrieval order (stable sort via `-i` secondary key)
+- Top `N=6` docs kept by default; empty query → first `N` docs returned unchanged
+
+**Why token overlap?** It requires zero new dependencies (no cross-encoder, no reranker model, no API), runs in microseconds per query, and correlates well with MultiQueryRetriever output quality on Chinese + English semiconductor vocabulary. A real cross-encoder rerank is listed as deferred in the Phase 3+/Phase 4 Advanced RAG roadmap.
+
+**Debug surface (analysis mode):**
+Every structured analysis output now includes:
+- `retrieved_count` — raw doc count from the retriever (before rerank)
+- `reranked_count` — docs kept after rerank
+- `top_sources` — up to 3 unique source filenames from the top-reranked docs
+
+These values are read from a module-level `_last_retrieval_debug` dict that the rerank wrapper writes during `chain.invoke`. Chat mode is intentionally not wired — the header is already dense and analysis JSON is the natural debug surface.
+
 ## Planned prompt changes
 
 - Add explicit reasoning / ranking instructions to analysis prompt (future phase)

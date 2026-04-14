@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-04-14 — Phase 6: Retrieval Rerank Layer
+
+- New helper `rerank_docs(query, docs, top_n=6)` — lightweight token-overlap rerank. No new dependency; reuses the existing `_tokenize()` helper from the memory layer
+- New helper `make_rerank_retriever(base_retriever, top_n, top_sources_k)` — wraps a base retriever as a `RunnableLambda` that runs vector retrieval, reranks, and writes retrieval debug signals into a module-level `_last_retrieval_debug` dict
+- All 4 chain wirings in `build_rag_system` (gemini chat, gemini analysis, openai chat, openai analysis) now pipe through `make_rerank_retriever(...)` before `format_docs`. No change to retriever construction, vector store, or embeddings
+- Added `RunnableLambda` to the existing `langchain_core.runnables` import (additive)
+- Added three retrieval debug fields to every structured analysis output:
+  - `retrieved_count: int` — raw docs returned by the vector/multi-query retriever
+  - `reranked_count: int` — docs kept after token-overlap rerank
+  - `top_sources: list[str]` — up to 3 unique source filenames of the top-reranked docs
+- Chat mode is intentionally untouched in this phase — the rerank layer still runs (so retrieval quality improves for chat), but the chat header already carries memory/route/rewrite/trust lines and adding three more was rejected on minimal-diff grounds. Chat debug visibility deferred.
+- No changes to `MESAnalysisOutput` schema, memory logic, routing logic, query rewrite, trust layer, evaluation script, or UI
+
 ## 2026-04-14 — Phase 5: Decision Trust Layer
 
 - New helper `compute_trust_score(matched_case_ids, route_used, confidence, evidence_sources, provider_used)` — pure heuristic, no LLM, no new deps
