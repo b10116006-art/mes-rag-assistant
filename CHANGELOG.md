@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-04-15 — Docs: Phase 6.6 evaluation limitations documented
+
+- `AI_ROADMAP.md` — added an explicit "Current limitations" subsection under Phase 6.6 covering dataset size, hand-labeled `expected_sources`, the regression-detection orientation of the harness, and the fact that mocked smoke runs do not produce citable accuracy numbers
+- `AI_ROADMAP.md` — added a "Next step (recommended)" subsection making the 100+ case benchmark expansion and a real-provider A/B run a prerequisite for further retrieval-layer work
+- `README.md` — added a short "Evaluation status" note so external readers see the constraints before any numbers
+- No runtime code changes in this entry (docs only)
+
+## 2026-04-14 — Phase 6.5: Retrieval Evaluation Layer
+
+- Extended `eval/eval_cases.json` with an optional `expected_sources` field per case (additive; pre-existing fields unchanged). Populated for the 7 cases where a clear doc mapping exists; left as `[]` for the 3 general-knowledge cases
+- Extended `eval/run_eval.py` to read the Phase 6 retrieval debug fields (`retrieved_count`, `reranked_count`, `top_sources`) from the structured analysis output and compute three per-case retrieval metrics when `expected_sources` is provided:
+  - `retrieval_hit` — any expected source appears in `top_sources`
+  - `top_k_hit` — same as `retrieval_hit` since `top_sources` is already capped at the app-side top-k window
+  - `source_overlap` — integer count of expected ∩ actual sources
+- Added four summary-level aggregates: `retrieval_graded_cases`, `retrieval_hit_rate`, `top_k_hit_rate`, `avg_source_overlap`, plus `avg_retrieved_count` / `avg_reranked_count` across the full run
+- Extended the per-case console table with `retr` and `ovlp` columns (`-` for ungraded cases)
+- `eval/eval_results.json` schema gains the new per-case fields automatically via the existing dict serialization
+- No changes to `app.py`, chain logic, retrieval, memory, routing, trust layer, or UI
+
 ## 2026-04-14 — Phase 6: Retrieval Rerank Layer
 
 - New helper `rerank_docs(query, docs, top_n=6)` — lightweight token-overlap rerank. No new dependency; reuses the existing `_tokenize()` helper from the memory layer
