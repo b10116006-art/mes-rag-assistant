@@ -60,17 +60,24 @@ python app.py
 
 Add knowledge documents as `.md` files to `rag_data/` before running.
 
-## Local evaluation (Phase 4)
+## Local evaluation (Phase 4 / 6.5 / 6.6)
 
-A small offline evaluation harness lives under `eval/`. It runs a labeled case set through the analysis path and reports decision / routing / memory accuracy — no API endpoints, no dashboards.
+A small offline evaluation harness lives under `eval/`. It runs a labeled case set through the analysis path and reports decision / routing / memory accuracy plus retrieval quality metrics, and supports a 4-mode A/B grid over query rewrite and rerank — no API endpoints, no dashboards.
 
 ```bash
 python eval/run_eval.py
 ```
 
-- Cases: `eval/eval_cases.json` (10 labeled queries)
-- Results: `eval/eval_results.json` (full per-case detail)
-- Memory and routing metrics work even without API keys; `anomaly_type_accuracy` requires a live LLM
+- Cases: `eval/eval_cases.json` (40 labeled queries across anomaly / SOP / equipment / AI-logic / general tags)
+- Results: `eval/eval_results.json` (per-case detail for the full-mode run) and `eval/eval_ab_results.json` (all 4 A/B modes)
+- Memory, routing, and retrieval metrics work even without API keys; `anomaly_type_accuracy` requires a live LLM
+
+### Evaluation status (honest scope)
+
+- **Small benchmark** — 40 total cases, 37 graded with `expected_sources`. Wide confidence intervals; single-case flips can move rate metrics by 2–3 percentage points.
+- **Regression-detection oriented** — the harness is designed to catch "did my change make the stack worse?" on a controlled diff. It is not designed to certify production accuracy.
+- **Not a production accuracy certification** — any numbers produced by this harness should not be cited as final model performance. Mocked smoke runs in particular validate the A/B framework itself and do not reflect live LLM behavior.
+- **Larger benchmark required before strong claims** — expanding to 100+ curated, inter-rater-reviewed cases is listed as the next step in `AI_ROADMAP.md` under Phase 6.6.
 
 ## HF Secrets (Hugging Face Space)
 

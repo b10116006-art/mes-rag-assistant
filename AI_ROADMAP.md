@@ -7,6 +7,41 @@
 
 ---
 
+## Status Index
+
+This index is the single source of truth for phase state. Individual phase sections below carry detail; this table is how to answer "what's done?" without reading the whole file.
+
+### ✅ Implemented
+
+| Phase | Name | Artifact |
+|---|---|---|
+| 0 | Repo Foundation | README / CLAUDE.md / ARCHITECTURE.md |
+| 1 | Memory-based RAG | `memory_store.json` + `retrieve_memory()` |
+| 2 | Structured Decision Output | `MESAnalysisOutput` + `invoke_analysis_validated()` + `schema_version` |
+| 3 | Routing / Context Orchestrator | `classify_query()` + `route_query()` + `route_used` / `decision_reason` debug |
+| 4 | Evaluation Layer (MVP) | `eval/run_eval.py` + `eval/eval_cases.json` (10 cases) |
+| 4.5 | Hallucination Control / Trust Signals | `evidence_sources` / `confidence_reason` / `uncertainty_flag` |
+| 4.6 | Query Rewrite (heuristic) | `rewrite_query()` + `original_query` / `rewritten_query` |
+| 5 | Trust Layer (scoring) | `compute_trust_score()` + `trust_score` / `trust_level` / `trust_reason` (analysis + chat) |
+| 6 | Retrieval Quality / Rerank | `rerank_docs()` + `make_rerank_retriever()` + `retrieved_count` / `reranked_count` / `top_sources` |
+| 6.5 | Retrieval Evaluation Metrics | `expected_sources` labels + `retrieval_hit_rate` / `top_k_hit_rate` / `avg_source_overlap` in eval summary |
+
+### 🔜 Near-term next work (planned)
+
+- **Phase 6.6** — A/B measurement of rewrite and rerank against Phase 6.5 metrics
+- **Near-term engineering backlog** (see dedicated section) — chunking strategy, embedding selection, cross-encoder rerank, larger benchmark, multimodal RAG
+
+### 🗺 Long-term roadmap
+
+- **Phase 7** — Cloud-ready FastAPI serving layer
+- **Phase 8** — Document normalization + ingestion pipeline
+- **Phase 9** — Reliability / provider routing with circuit breaker
+- Multimodal document understanding (layout-aware PDF, image+OCR)
+- Golden benchmark with expert labels + inter-rater agreement
+- Consumer-side trust gating on MES/dashboard surfaces
+
+---
+
 ## Phase 0: Repo Foundation
 
 **Objective:** Clean, scoped repo with documented structure and development rules.
@@ -113,7 +148,7 @@
 
 ## Phase 4: Evaluation Layer
 
-**Status:** In progress — MVP landed. A local evaluation harness (`eval/run_eval.py` + `eval/eval_cases.json`) now reports `anomaly_type_accuracy`, `memory_used_accuracy`, and `route_used_accuracy` against a small labeled dataset. Remaining work: retrieval-level metrics (recall@k, MRR), larger benchmark set, and CI integration — tracked under Phase 3+ / Phase 4 Advanced RAG.
+**Status:** MVP landed. A local evaluation harness (`eval/run_eval.py` + `eval/eval_cases.json`) reports `anomaly_type_accuracy`, `memory_used_accuracy`, and `route_used_accuracy` against a small labeled dataset. Retrieval-level metrics shipped in Phase 6.5. Larger benchmark set and CI integration remain open.
 
 **Objective:** Add automated quality metrics for retrieval relevance and decision accuracy.
 
@@ -158,6 +193,121 @@ Larger workstreams that require dedicated design and likely touch more than one 
 2. **Document ingestion pipeline** — a standalone ingestion path (source crawl → parse → chunk → embed → index) that can be run offline and versioned separately from the serving code. Enables adding new sources without touching `app.py`.
 3. **Golden benchmark / expert-labeled evaluation set** — engineer-reviewed labels on real anomaly cases, with inter-rater agreement tracked. This is the only way to grade *decision quality* at the level MES consumers actually care about.
 4. **Consumer-side trust gating** — downstream surfaces (MES dashboard, operator UI) consume `trust_score` / `uncertainty_flag` / `evidence_sources` as first-class inputs to decide whether to display, warn, or suppress a recommendation. Requires an integration contract with the consuming repo, not just additive fields here.
+
+---
+
+## Phase 6.5: Retrieval Evaluation Metrics
+
+**Status:** Implemented. `eval/run_eval.py` reads the Phase 6 retrieval debug fields from every analysis output and grades retrieval quality against per-case `expected_sources` labels.
+
+**Objective:** Make retrieval quality a first-class measurement surface so rerank and rewrite changes can be graded against concrete deltas instead of anecdotes.
+
+**Why it matters:** Phase 6 shipped a rerank layer with no way to tell whether it helps. Phase 6.5 closes that loop — each eval case carries an optional `expected_sources` list, and the runner reports per-case `retrieval_hit` / `top_k_hit` / `source_overlap` plus aggregate `retrieval_hit_rate`, `top_k_hit_rate`, `avg_source_overlap`, `avg_retrieved_count`, `avg_reranked_count`.
+
+**Acceptance criteria:**
+- `expected_sources` added as an additive optional label on eval cases ✅
+- Per-case metrics (`retrieval_hit`, `top_k_hit`, `source_overlap`) ✅
+- Aggregate metrics in the run summary and per-case table ✅
+- `app.py` unchanged (eval-only extension) ✅
+
+**Known limitations (honest baseline):**
+- Only 7 of 10 cases carry `expected_sources` labels; 3 general-knowledge cases are ungraded
+- Labels are hand-assigned by a single author, not inter-rater validated
+- `top_k_hit` equals `retrieval_hit` by construction today (`top_sources` is already the top-k window from `app.py`)
+- 10-case baseline is too small to distinguish a real rerank improvement from noise — one mis-retrieval swings `retrieval_hit_rate` by ~14 points
+
+---
+
+## Phase 6.6: Retrieval A/B Measurement
+
+**Status:** Planned. Recommended next coding phase.
+
+**Objective:** Use the Phase 6.5 metric surface to measure the actual contribution of each retrieval-quality layer shipped so far (query rewrite, rerank), so we can defend keeping them, tuning them, or replacing them.
+
+**Why it matters:** Query rewrite (Phase 4.6) and rerank (Phase 6) are both "always on" today. We believe they help — the heuristic smoke tests look right — but Phase 6.5 gives us a single point estimate with no counterfactual. Without an A/B measurement, claims like "rerank improves retrieval" are just opinions.
+
+**Scope:**
+1. Add an eval-only toggle surface — environment variables or CLI flags on `eval/run_eval.py` — that disables `rewrite_query` and/or `make_rerank_retriever` at eval time. The runtime (`app.py`) default behavior does not change.
+2. Run the eval four times covering the full 2×2 grid:
+   - `(rewrite off, rerank off)` — baseline
+   - `(rewrite on, rerank off)` — rewrite contribution
+   - `(rewrite off, rerank on)` — rerank contribution
+   - `(rewrite on, rerank on)` — current production behavior
+3. For each run, record `retrieval_hit_rate`, `top_k_hit_rate`, `avg_source_overlap`, `anomaly_type_accuracy`, `avg_retrieved_count`, `avg_reranked_count`.
+4. Produce a before/after comparison table in a reproducible artifact (`eval/eval_ab_results.md` or similar) showing the delta attributable to each layer.
+
+**Acceptance criteria:**
+- A/B toggle exists and is strictly eval-only (runtime path unaffected)
+- Four-run comparison table committed as a reproducible artifact
+- Each layer's contribution is stated as a quantitative delta, not qualitative prose
+- Any layer showing zero or negative impact on the primary metrics is flagged for redesign or removal
+
+**Out of scope for this phase:**
+- Changing the layers themselves in response to results (that is a follow-up phase)
+- Statistical significance testing — the dataset is too small; deferred to the larger benchmark work in the engineering backlog
+
+### Current limitations (as of this phase)
+
+These are the honest constraints on what Phase 6.6 numbers can be used to claim. Any external communication about retrieval quality should be scoped to these bounds.
+
+- **Benchmark is small.** 40 cases total, 37 graded. Standard error on rate metrics is wide enough that 5-point deltas can be noise rather than real improvements.
+- **Labels are hand-assigned.** `expected_sources` mappings were authored by a single person against topical guesswork, not against a gold retriever or inter-rater review. Anomaly and equipment tags are lowest-reliability.
+- **Mocked runs validate the framework, not model performance.** The smoke tests in this repo exercise the A/B toggle plumbing and the metric computation; they do not produce numbers attributable to the live LLM stack. Any number printed by a mocked run must not be cited as a real accuracy figure.
+- **Regression-detection oriented.** The current harness is well suited to catching "did change X make the stack worse?" across a controlled diff. It is not suited to certifying production accuracy, ranking models against public baselines, or supporting go/no-go deployment decisions.
+
+### Next step (recommended)
+
+Before pursuing any further retrieval-layer work (cross-encoder rerank, embedding swap, chunking changes), the benchmark itself must grow:
+
+1. **Expand the benchmark dataset** to 100+ curated cases, stratified by anomaly type, severity, and layer. Each new case requires an `expected_sources` label reviewed by someone other than the author. Target: inter-rater agreement ≥ 0.8 on a random 20% sample.
+2. **Run real A/B testing** on the expanded dataset against live LLM providers (Gemini + OpenAI). Record per-mode numbers in a reproducible artifact committed alongside the dataset. Until this is done, no strong accuracy claim about any retrieval layer is defensible.
+3. **Gate further retrieval changes** behind a measurable improvement on the expanded benchmark. A cross-encoder rerank that cannot beat token-overlap on real data does not ship.
+
+---
+
+## Near-term engineering backlog
+
+This is the concrete work the team is most likely to pick up after Phase 6.6 finishes. Each item is sized to fit the minimal-diff / additive-only discipline, and each unblocks something on the long-term roadmap.
+
+### 1. Chunking strategy
+
+**What:** Revisit `RecursiveCharacterTextSplitter` parameters (`chunk_size=600`, `chunk_overlap=80`, Chinese-aware separators) against the Phase 6.5 metric surface. Measure `retrieval_hit_rate` under 3–4 alternative configurations (smaller chunks for SOP steps, larger chunks for FMEA narrative, overlap tuning).
+
+**Why:** The current chunking was chosen once and never measured. It almost certainly over-chunks short SOP procedures and under-chunks FMEA tables. Chunk boundaries directly cap how much of a relevant passage the rerank step can surface.
+
+**Unblocks:** Fair comparison with cross-encoder rerank — without decent chunks, a better reranker has nothing to rank.
+
+### 2. Embedding model selection / tuning
+
+**What:** Benchmark alternatives to the current `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` on the Phase 6.5 dataset. Candidates include `bge-m3`, `gte-multilingual-base`, and newer multilingual E5 variants. Optionally fine-tune on the Phase 4 labeled set once it grows.
+
+**Why:** The current embedding model was chosen for CPU-friendliness, not retrieval quality on semiconductor vocabulary. A model that understands `"ILD"`, `"PECVD"`, `"uniformity"` as related concepts directly lifts `retrieval_hit_rate` with zero changes to the rest of the chain.
+
+**Unblocks:** Cross-encoder rerank quality (better candidates in, better ranking out), and multimodal RAG (shared embedding space for text + image captions).
+
+### 3. Cross-encoder reranker
+
+**What:** Replace the Phase 6 token-overlap rerank with a learned cross-encoder (`bge-reranker-base` or `bge-reranker-v2-m3`). Gate behind a flag so the heuristic remains the fallback. Measure Phase 6.5 metric deltas before/after.
+
+**Why:** Token-overlap rewards surface-term matches and misses semantic synonyms. A cross-encoder scores query-document relevance directly and consistently beats lexical methods on non-English technical corpora.
+
+**Unblocks:** Defensible trust scoring — once rerank actually selects the right docs, `evidence_sources` becomes citation-grade, and `trust_score` deltas track retrieval quality instead of being dominated by the memory-hit boolean.
+
+### 4. Larger benchmark dataset
+
+**What:** Grow `eval/eval_cases.json` from 10 to 100+ cases. Stratify by anomaly type, severity, and layer. Record source provenance for every case (`expected_sources` populated throughout, not just 7 of 10).
+
+**Why:** 10 cases cannot distinguish a real 5-point retrieval improvement from noise. 100+ cases make small rerank / embedding deltas visible and let us compute per-stratum accuracy (does rerank hurt SOP queries while helping case-based queries?).
+
+**Unblocks:** Statistical claims about any layer's contribution — the blocker Phase 6.6 explicitly defers. Also unblocks the "golden benchmark" long-term item by serving as the first curated version.
+
+### 5. Multimodal RAG (PDF / image / OCR)
+
+**What:** Add a non-markdown ingestion path. Layout-aware PDF parsing (e.g. `pymupdf` + heuristic section detection), image OCR for scanned SOPs and wafer map captures, normalized into the same `Document` shape the existing chain consumes. No changes to chains or prompts — new source format only.
+
+**Why:** Real FAB documentation lives in PDFs and scanned images, not pre-cleaned markdown. Until the ingestion pipeline can absorb those sources, the retrieval layer is artificially limited to whatever someone hand-converts into `rag_data/`.
+
+**Unblocks:** The entire "long-term multimodal document understanding" roadmap item. Also lets trust signals cite real production documents instead of demo markdown.
 
 ---
 
@@ -226,7 +376,9 @@ Larger workstreams that require dedicated design and likely touch more than one 
 
 ---
 
-## Phase 6: Reliability / Provider Routing
+## Phase 9: Reliability / Provider Routing
+
+**Status:** Planned — long-term. Renamed from the original "Phase 6" to avoid collision with the Phase 6 retrieval quality work that shipped first.
 
 **Objective:** Formalize multi-provider routing with health checks, circuit breaker, and fallback policy.
 
