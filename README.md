@@ -60,24 +60,26 @@ python app.py
 
 Add knowledge documents as `.md` files to `rag_data/` before running.
 
-## Local evaluation (Phase 4 / 6.5 / 6.6)
+## Local evaluation (Phase 4 → 6.7)
 
-A small offline evaluation harness lives under `eval/`. It runs a labeled case set through the analysis path and reports decision / routing / memory accuracy plus retrieval quality metrics, and supports a 4-mode A/B grid over query rewrite and rerank — no API endpoints, no dashboards.
+An offline evaluation harness lives under `eval/`. It runs a labeled case set through the analysis path and reports decision, routing, memory, and retrieval quality metrics.
 
 ```bash
 python eval/run_eval.py
 ```
 
-- Cases: `eval/eval_cases.json` (40 labeled queries across anomaly / SOP / equipment / AI-logic / general tags)
-- Results: `eval/eval_results.json` (per-case detail for the full-mode run) and `eval/eval_ab_results.json` (all 4 A/B modes)
-- Memory, routing, and retrieval metrics work even without API keys; `anomaly_type_accuracy` requires a live LLM
+- **Dataset:** `eval/eval_cases.json` — 40 labeled cases (15 anomaly / 15 sop_doc / 10 general)
+- **Output:** `eval/eval_results.json` (per-case detail)
+- **Metrics:** `anomaly_type_accuracy`, `memory_used_accuracy`, `route_used_accuracy`; retrieval metrics require analysis-mode JSON fields from `app.py`
+- `anomaly_type_accuracy` requires a live LLM provider key; memory and routing metrics work without API keys
 
 ### Evaluation status (honest scope)
 
-- **Small benchmark** — 40 total cases, 37 graded with `expected_sources`. Wide confidence intervals; single-case flips can move rate metrics by 2–3 percentage points.
-- **Regression-detection oriented** — the harness is designed to catch "did my change make the stack worse?" on a controlled diff. It is not designed to certify production accuracy.
-- **Not a production accuracy certification** — any numbers produced by this harness should not be cited as final model performance. Mocked smoke runs in particular validate the A/B framework itself and do not reflect live LLM behavior.
-- **Larger benchmark required before strong claims** — expanding to 100+ curated, inter-rater-reviewed cases is listed as the next step in `AI_ROADMAP.md` under Phase 6.6.
+- **Benchmark size:** 40 cases, all with `expected_sources` aligned to the 4 real files in `rag_data/`. More credible than the earlier 10-case MVP, but still too small for production accuracy claims — one case flip ≈ 2.5 pp swing.
+- **Label quality:** `expected_sources` are hand-assigned by one author against topical reasoning. No inter-rater review yet.
+- **Regression-detection oriented:** the harness is designed to catch "did this change make things worse?" on a controlled diff. It is **not** a production accuracy certification.
+- **Framework runs ≠ live-model performance:** any numbers produced by mocked smoke tests validate the eval framework itself. They must not be cited as final model accuracy.
+- **Next steps:** merge Phase 6.7 → wire live LLM keys in a safe eval-only context (Phase B) → expand toward 100+ cases with inter-rater review → resume retrieval tuning (chunking, embedding, cross-encoder rerank, multimodal RAG).
 
 ## HF Secrets (Hugging Face Space)
 

@@ -1,82 +1,402 @@
 [
   {
     "id": "EVAL-001",
-    "query": "ILD 厚度 偏薄 8% 49點 map 中心偏低",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "ILD 厚度偏薄 8% 49點 map 中心偏低",
+    "expected_sources": ["01_異常類型定義.md", "02_SOP_異常處置流程.md"],
     "expected_anomaly_type": "thickness_ood",
-    "expected_memory_used": true,
-    "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-002",
-    "query": "poly particle count 偏高 超過 spec 上限 wafer 邊緣集中",
-    "expected_anomaly_type": "particle_count",
-    "expected_memory_used": true,
-    "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "ILD thickness out of spec center-low 49 point map",
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-003",
-    "query": "oxide etch rate drift 偏高 12% target",
-    "expected_anomaly_type": "etch_rate_drift",
-    "expected_memory_used": true,
-    "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "PECVD 沉積速率下降 厚度偏低 原因分析",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-004",
-    "query": "metal1 pvd 靶材 濺射功率 片內邊緣差異 fail",
-    "expected_anomaly_type": "uniformity_fail",
-    "expected_memory_used": true,
-    "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "PECVD 腔體溫度控制器飄移 厚度異常",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-005",
-    "query": "poly furnace 擴散爐 dopant sheet resistance 偏高",
-    "expected_anomaly_type": "sheet_resistance",
-    "expected_memory_used": true,
-    "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "PECVD shower head 堵塞 沉積均勻度 fail",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "uniformity_fail",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-006",
-    "query": "黃光 photolithography sop 步驟 定義",
-    "expected_anomaly_type": "general",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "TEOS 前驅氣體 MFC 流量異常 偏低",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "thickness_ood",
     "expected_memory_used": false,
-    "expected_route_used": "rag",
-    "tag": "sop-doc"
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-007",
-    "query": "stepper 曝光機 維護 手冊 流程",
-    "expected_anomaly_type": "general",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "ILD 均勻度超出 5% spec 片內中心邊緣差異",
+    "expected_sources": ["01_異常類型定義.md", "02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "uniformity_fail",
     "expected_memory_used": false,
-    "expected_route_used": "rag",
-    "tag": "sop-doc"
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-008",
-    "query": "請解釋 numerical aperture 原理",
-    "expected_anomaly_type": "general",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "PECVD RF power 不穩 沉積速率 drift",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "thickness_ood",
     "expected_memory_used": false,
-    "expected_route_used": "llm",
-    "tag": "general"
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-009",
-    "query": "晶圓廠 yield learning 方法論",
-    "expected_anomaly_type": "general",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "ILD 邊緣厚度偏厚 wafer edge thick",
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_anomaly_type": "thickness_ood",
     "expected_memory_used": false,
-    "expected_route_used": "llm",
-    "tag": "general"
+    "expected_route_used": "llm"
   },
   {
     "id": "EVAL-010",
-    "query": "CMP slurry 化學成分分類",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "PECVD 腔體內壁 沉積物 剝落 粒子污染",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "particle_count",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-011",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "ILD SEM 截面 void 缺陷 異常",
+    "expected_sources": ["01_異常類型定義.md", "02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "void_detected",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-012",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "PECVD gas flow ratio 偏差 厚度異常",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-013",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "ILD refractive index 偏差 光學量測 異常",
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-014",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "PECVD precursor 耗盡 腔體壓力 drift",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-015",
+    "type": "anomaly",
+    "tag": "anomaly",
+    "query": "ILD 49 點 map 中心偏薄 均勻性不良 fail",
+    "expected_sources": ["01_異常類型定義.md", "02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "uniformity_fail",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-016",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "ILD OCAP 標準作業程序 hold lot 步驟 定義",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
     "expected_anomaly_type": "general",
     "expected_memory_used": false,
-    "expected_route_used": "llm",
-    "tag": "general"
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-017",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "ILD out of control action plan 處置流程 規範",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-018",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "PECVD FMEA 失效模式分析 文件 定義",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-019",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "PECVD FMEA 風險優先數 RPN 計算 規範",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-020",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "半導體製程 overview 文件 入門 guideline",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-021",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "fab process flow overview 文件 標準定義",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-022",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "ILD OCAP 3-sigma 警報 處置步驟 SOP",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-023",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "PECVD FMEA 嚴重度 發生率 偵測度 定義",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-024",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "fab 製程模組 通用說明 overview 手冊",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-025",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "ILD action plan engineer 通知 escalation 流程",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-026",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "PECVD FMEA 建議對策 preventive action 規範",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-027",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "semiconductor process overview 標準文件 定義",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-028",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "ILD OCAP 決策流程 決策樹 SOP 手冊",
+    "expected_sources": ["02_SOP_異常處置流程.md", "03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-029",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "PECVD 失效樹 分析 root cause 定義",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-030",
+    "type": "sop_doc",
+    "tag": "sop_doc",
+    "query": "fab 入門 文件 process overview guideline",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag"
+  },
+  {
+    "id": "EVAL-031",
+    "type": "general",
+    "tag": "general",
+    "query": "what is a semiconductor fab",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-032",
+    "type": "general",
+    "tag": "general",
+    "query": "overview of semiconductor process flow",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-033",
+    "type": "general",
+    "tag": "general",
+    "query": "晶圓廠 運作 整體流程",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-034",
+    "type": "general",
+    "tag": "general",
+    "query": "ILD 是什麼 基本介紹",
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-035",
+    "type": "general",
+    "tag": "general",
+    "query": "PECVD 製程 原理 基礎概念",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-036",
+    "type": "general",
+    "tag": "general",
+    "query": "wafer processing 基礎概念 新人教學",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-037",
+    "type": "general",
+    "tag": "general",
+    "query": "fab 術語 入門 製程名詞",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-038",
+    "type": "general",
+    "tag": "general",
+    "query": "半導體 製程 大綱 介紹",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-039",
+    "type": "general",
+    "tag": "general",
+    "query": "what does PECVD stand for",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
+  },
+  {
+    "id": "EVAL-040",
+    "type": "general",
+    "tag": "general",
+    "query": "clean room 潔淨室 基本概念 overview",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm"
   }
 ]

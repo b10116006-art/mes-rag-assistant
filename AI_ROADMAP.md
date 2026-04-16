@@ -25,11 +25,13 @@ This index is the single source of truth for phase state. Individual phase secti
 | 5 | Trust Layer (scoring) | `compute_trust_score()` + `trust_score` / `trust_level` / `trust_reason` (analysis + chat) |
 | 6 | Retrieval Quality / Rerank | `rerank_docs()` + `make_rerank_retriever()` + `retrieved_count` / `reranked_count` / `top_sources` |
 | 6.5 | Retrieval Evaluation Metrics | `expected_sources` labels + `retrieval_hit_rate` / `top_k_hit_rate` / `avg_source_overlap` in eval summary |
+| 6.6 | Retrieval A/B Framework | 2×2 toggle grid (`USE_QUERY_REWRITE` × `USE_RERANK`) in `eval/run_eval.py`, 4-mode comparison table |
+| 6.7 | Benchmark Expansion | `eval/eval_cases.json` expanded 10→40 cases, `expected_sources` aligned to real `rag_data/` filenames |
 
 ### 🔜 Near-term next work (planned)
 
-- **Phase 6.6** — A/B measurement of rewrite and rerank against Phase 6.5 metrics
-- **Near-term engineering backlog** (see dedicated section) — chunking strategy, embedding selection, cross-encoder rerank, larger benchmark, multimodal RAG
+- **Phase B: Live Eval Environment Wiring** — configure live LLM provider keys in a safe eval-only context and run a real 4-mode A/B pass. This is the first step that produces citable numbers.
+- **Near-term engineering backlog** (see dedicated section) — chunking strategy, embedding selection, cross-encoder rerank, larger benchmark (100+ cases), multimodal RAG
 
 ### 🗺 Long-term roadmap
 
@@ -262,6 +264,31 @@ Before pursuing any further retrieval-layer work (cross-encoder rerank, embeddin
 1. **Expand the benchmark dataset** to 100+ curated cases, stratified by anomaly type, severity, and layer. Each new case requires an `expected_sources` label reviewed by someone other than the author. Target: inter-rater agreement ≥ 0.8 on a random 20% sample.
 2. **Run real A/B testing** on the expanded dataset against live LLM providers (Gemini + OpenAI). Record per-mode numbers in a reproducible artifact committed alongside the dataset. Until this is done, no strong accuracy claim about any retrieval layer is defensible.
 3. **Gate further retrieval changes** behind a measurable improvement on the expanded benchmark. A cross-encoder rerank that cannot beat token-overlap on real data does not ship.
+
+---
+
+## Phase 6.7: Benchmark Expansion & Filename Alignment
+
+**Status:** Implemented. Ready to merge.
+
+**Objective:** Grow the evaluation dataset from a 10-case smoke-test to a 40-case benchmark with sources aligned to the real corpus, so the A/B framework (Phase 6.6) produces meaningful numbers when wired to live providers.
+
+**What shipped:**
+- `eval/eval_cases.json` expanded from 10 → 40 labeled cases (15 anomaly, 15 sop_doc, 10 general)
+- All `expected_sources` point to the 4 filenames that actually exist in `rag_data/`
+- Every case carries all required fields for `run_eval.py` compatibility
+- No `app.py` changes, no new deps, no UI changes
+
+**Honest limitations (carry forward):**
+- 40 cases is a better benchmark than 10, but still too small for strong production accuracy claims. One case flip ≈ 2.5 pp swing on rate metrics.
+- `expected_sources` labels are hand-assigned by one person against topical guesswork, not against a gold retriever or inter-rater review.
+- All numbers produced by smoke-test and mocked runs validate the eval framework itself — they are **not** final live-model performance figures and must not be cited as such.
+
+**Next step (ordered):**
+1. Merge this Phase 6.7 branch into main
+2. Phase B: Wire live LLM provider keys into an eval-only context and run a real 4-mode A/B pass — this is the first step that produces citable numbers
+3. Expand benchmark further toward 100+ cases with inter-rater review
+4. Resume engineering backlog (chunking / embedding / cross-encoder rerank / multimodal RAG), each gated behind a measurable improvement on the expanded benchmark
 
 ---
 
