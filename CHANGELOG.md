@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-16 — Phase 6.7: Benchmark Expansion & Filename Alignment
+
+- Expanded `eval/eval_cases.json` from 10 → 40 labeled cases (15 anomaly, 15 sop_doc, 10 general)
+- All `expected_sources` aligned to the 4 real filenames currently in `rag_data/` (`01_異常類型定義.md`, `02_SOP_異常處置流程.md`, `03_AI_Copilot判斷邏輯.md`, `04_設備常見問題集.md`). No phantom filenames.
+- Every case includes all required fields: `id`, `type`, `tag`, `query`, `expected_sources`, `expected_anomaly_type`, `expected_memory_used`, `expected_route_used`
+- Updated `AI_ROADMAP.md`, `CHANGELOG.md`, `README.md` to document Phase 6.7 completion, honest evaluation limitations, and the next-step plan
+- **Not included in this phase:** live API evaluation runs, architecture refactors, new dependencies, UI changes, or production accuracy claims. All numbers produced so far are framework smoke-test results, not final model performance.
+
 ## 2026-04-15 — Docs: Phase 6.6 evaluation limitations documented
 
 - `AI_ROADMAP.md` — added an explicit "Current limitations" subsection under Phase 6.6 covering dataset size, hand-labeled `expected_sources`, the regression-detection orientation of the harness, and the fact that mocked smoke runs do not produce citable accuracy numbers
