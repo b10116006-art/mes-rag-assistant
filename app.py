@@ -38,6 +38,11 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 DATA_DIR = os.environ.get("RAG_DATA_DIR", "rag_data")
 LAST_CALL_TS = 0
 
+# Retrieval-mode flags — read at call time by rewrite_query() and _retrieve_and_rerank().
+# Default True = current production behavior. The eval harness toggles these to run A/B comparisons.
+USE_QUERY_REWRITE = True
+USE_RERANK = True
+
 class MESAnalysisOutput(BaseModel):
     anomaly_type: str = Field(description="異常類型代碼")
     risk_level: str = Field(description="HIGH / MEDIUM / LOW")
@@ -204,7 +209,7 @@ def make_rerank_retriever(base_retriever, top_n: int = 6, top_sources_k: int = 3
     """
     def _retrieve_and_rerank(query):
         docs = base_retriever.invoke(query)
-        reranked = rerank_docs(query, docs, top_n=top_n)
+        reranked = rerank_docs(query, docs, top_n=top_n) if USE_RERANK else list(docs)[:top_n]
         seen = []
         for d in reranked:
             name = _extract_source_name(d)
@@ -454,6 +459,8 @@ def rewrite_query(query: str, query_class: str) -> str:
     """
     q = (query or "").strip()
     if not q:
+        return q
+    if not USE_QUERY_REWRITE:
         return q
     if query_class == "case-based":
         return f"{q} | 半導體製程異常分析 anomaly root cause process deviation"
