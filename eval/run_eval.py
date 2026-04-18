@@ -64,7 +64,7 @@ def _set_ab_flags(use_rewrite: bool, use_rerank: bool):
         app_module.USE_RERANK = use_rerank
 
 
-def evaluate_case(case: dict) -> dict:
+def evaluate_case(case: dict, mode_name: str = "single") -> dict:
     query = case["query"]
 
     mem_records = retrieve_memory(query)
@@ -113,6 +113,7 @@ def evaluate_case(case: dict) -> dict:
         source_overlap = len(expected_set & top_k_slice)
 
     return {
+        "mode": mode_name,
         "id": case.get("id"),
         "tag": case.get("tag"),
         "query": query,
@@ -224,7 +225,7 @@ def run_mode(mode_name: str, use_rewrite: bool, use_rerank: bool, cases: list) -
     results = []
     for i, case in enumerate(cases, 1):
         print(f"  [{mode_name} {i}/{len(cases)}] {case.get('id')} — {case['query'][:45]}")
-        results.append(evaluate_case(case))
+        results.append(evaluate_case(case, mode_name=mode_name))
     summary = compute_summary(results)
     return {"mode": mode_name, "use_rewrite": use_rewrite, "use_rerank": use_rerank,
             "summary": summary, "results": results}
