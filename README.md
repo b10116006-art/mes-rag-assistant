@@ -38,6 +38,19 @@ It does **not** run MES pipelines, dashboards, or AOI vision training.
 | Provider routing | Gemini / OpenAI failover, future cloud providers |
 | Cloud-ready serving | FastAPI serving layer (Phase 7) |
 
+## What this repo is / is not
+
+**This repo is:**
+- A decision-core / retrieval-core layer for semiconductor process analysis
+- Designed for integration with AI MES Copilot
+- Compatible with future AOI evidence contracts (additive input, not runtime coupling)
+
+**This repo is NOT:**
+- MES runtime system
+- Real-time ingestion layer (MQTT / streaming)
+- Dashboard backend or frontend
+- AOI training or inference pipeline
+
 ## What does NOT belong in this repo
 
 - AOI / computer vision training or inference
@@ -45,6 +58,18 @@ It does **not** run MES pipelines, dashboards, or AOI vision training.
 - MES dashboard backend or frontend
 - Machine utilization business logic
 - LINE notification delivery
+
+## Current capabilities (as of Phase 6.6-prep)
+
+- Multi-mode RAG evaluation (baseline / rewrite_only / rerank_only / full)
+- Query rewrite toggle (`USE_QUERY_REWRITE`)
+- Retrieval rerank toggle (`USE_RERANK`) with budget parity across modes
+- Memory retrieval integration (historical anomaly cases)
+- Structured decision outputs with schema-guided evaluation (Pydantic-based)
+- Trust-oriented evaluation signals and retrieval observability (partial / MVP)
+- Action-level decision scoring (`decision_match_score` with keyword overlap)
+
+**System maturity:** Core capabilities are implemented. Many components are still MVP or partial. Current focus is on comparability and evaluation correctness, not production deployment.
 
 ## Local run
 
