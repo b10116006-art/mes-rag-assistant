@@ -1,11 +1,14 @@
 [
   {
     "id": "EVAL-001",
-    "query": "ILD 厚度 偏薄 8% 49點 map 中心偏低",
+    "query": "ILD 厚度偏薄 8% 49點 map 中心偏低",
     "expected_anomaly_type": "thickness_ood",
     "expected_memory_used": true,
     "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_actions": ["Hold lot", "通知 process engineer", "SEM 截面確認"],
+    "tag": "anomaly",
+    "difficulty": "easy"
   },
   {
     "id": "EVAL-002",
@@ -13,7 +16,10 @@
     "expected_anomaly_type": "particle_count",
     "expected_memory_used": true,
     "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_actions": ["PM 清機", "確認 clean 後放行"],
+    "tag": "anomaly",
+    "difficulty": "easy"
   },
   {
     "id": "EVAL-003",
@@ -21,7 +27,10 @@
     "expected_anomaly_type": "etch_rate_drift",
     "expected_memory_used": true,
     "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_actions": ["Hold 設備", "更換壓力感測器"],
+    "tag": "anomaly",
+    "difficulty": "medium"
   },
   {
     "id": "EVAL-004",
@@ -29,7 +38,10 @@
     "expected_anomaly_type": "uniformity_fail",
     "expected_memory_used": true,
     "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_actions": ["更換靶材", "重新執行均勻度 qualification"],
+    "tag": "anomaly",
+    "difficulty": "medium"
   },
   {
     "id": "EVAL-005",
@@ -37,46 +49,218 @@
     "expected_anomaly_type": "sheet_resistance",
     "expected_memory_used": true,
     "expected_route_used": "memory",
-    "tag": "memory-hit"
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_actions": ["重新 anneal", "確認爐管溫度 profile"],
+    "tag": "anomaly",
+    "difficulty": "medium"
   },
   {
     "id": "EVAL-006",
-    "query": "黃光 photolithography sop 步驟 定義",
+    "query": "PECVD 腔體壓力飄高 可能原因",
     "expected_anomaly_type": "general",
     "expected_memory_used": false,
-    "expected_route_used": "rag",
-    "tag": "sop-doc"
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["檢查 pump 油位", "執行 leak check", "確認 APC 閥位"],
+    "tag": "equipment",
+    "difficulty": "easy"
   },
   {
     "id": "EVAL-007",
-    "query": "stepper 曝光機 維護 手冊 流程",
-    "expected_anomaly_type": "general",
+    "query": "SiO2 沉積速率突然下降 15% 原因排查",
+    "expected_anomaly_type": "thickness_ood",
     "expected_memory_used": false,
-    "expected_route_used": "rag",
-    "tag": "sop-doc"
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md", "01_異常類型定義.md"],
+    "expected_actions": ["確認 RF Power 輸出", "檢查 TEOS 液位", "檢查 shower head"],
+    "tag": "equipment",
+    "difficulty": "medium"
   },
   {
     "id": "EVAL-008",
+    "query": "PECVD shower head 堵塞 沉積均勻度異常",
+    "expected_anomaly_type": "uniformity_fail",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md", "01_異常類型定義.md"],
+    "expected_actions": ["檢查 shower head 孔洞", "執行 NF3 腔體清潔"],
+    "tag": "anomaly",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-009",
+    "query": "TEOS MFC 流量偏低 厚度異常",
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_actions": ["確認 MFC 是否異常", "對比 PECVD log"],
+    "tag": "anomaly",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-010",
+    "query": "粒子分佈有規律 pattern 機械臂污染",
+    "expected_anomaly_type": "particle_count",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_actions": ["確認粒子分佈", "檢查機械臂"],
+    "tag": "anomaly",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-011",
+    "query": "ILD 均勻性差 shower head 堵塞",
+    "expected_anomaly_type": "uniformity_fail",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_actions": ["檢查 shower head", "確認均勻性"],
+    "tag": "anomaly",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-012",
+    "query": "FOUP 載具污染 單片粒子超標",
+    "expected_anomaly_type": "particle_count",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_actions": ["檢查 FOUP", "更換 cassette"],
+    "tag": "anomaly",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-013",
+    "query": "OOC 3-sigma 警報 處置步驟 SOP",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_actions": ["登入 MES 確認警報", "Hold 設備", "通知 On-Call Engineer"],
+    "tag": "sop",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-014",
+    "query": "Hold lot 標準處置流程 通知 process engineer",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_actions": ["Hold lot", "通知 process engineer"],
+    "tag": "sop",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-015",
+    "query": "PM 時間確認 近10 run 製程參數趨勢 SOP",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_actions": ["下載近 10 run 製程參數", "確認 PM 時間"],
+    "tag": "sop",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-016",
+    "query": "AI Copilot 判斷邏輯 決策流程 推理來源",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_actions": [],
+    "tag": "ai_logic",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-017",
+    "query": "confidence 信心分數 閾值 判斷",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_actions": [],
+    "tag": "ai_logic",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-018",
+    "query": "RF Power 實際輸出下降 沉積速率 偏低",
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["確認 RF log", "比較 RF 設定與實際"],
+    "tag": "equipment",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-019",
+    "query": "NF3 腔體清潔 執行時機 頻率",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["執行 NF3 清潔", "確認速率恢復"],
+    "tag": "equipment",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-020",
     "query": "請解釋 numerical aperture 原理",
     "expected_anomaly_type": "general",
     "expected_memory_used": false,
     "expected_route_used": "llm",
-    "tag": "general"
+    "expected_sources": [],
+    "expected_actions": [],
+    "tag": "general",
+    "difficulty": "easy"
   },
   {
-    "id": "EVAL-009",
+    "id": "EVAL-021",
     "query": "晶圓廠 yield learning 方法論",
     "expected_anomaly_type": "general",
     "expected_memory_used": false,
     "expected_route_used": "llm",
-    "tag": "general"
+    "expected_sources": [],
+    "expected_actions": [],
+    "tag": "general",
+    "difficulty": "easy"
   },
   {
-    "id": "EVAL-010",
+    "id": "EVAL-022",
     "query": "CMP slurry 化學成分分類",
     "expected_anomaly_type": "general",
     "expected_memory_used": false,
     "expected_route_used": "llm",
-    "tag": "general"
+    "expected_sources": [],
+    "expected_actions": [],
+    "tag": "general",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-023",
+    "query": "ILD SEM 截面 void 缺陷 金屬線間",
+    "expected_anomaly_type": "void_detected",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["01_異常類型定義.md"],
+    "expected_actions": ["Hold lot", "SEM 截面確認"],
+    "tag": "anomaly",
+    "difficulty": "hard"
+  },
+  {
+    "id": "EVAL-024",
+    "query": "腔體溫度偏低 成長速率下降 膜厚偏薄",
+    "expected_anomaly_type": "thickness_ood",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_actions": ["確認腔體溫度", "對比 PECVD log"],
+    "tag": "anomaly",
+    "difficulty": "medium"
   }
 ]

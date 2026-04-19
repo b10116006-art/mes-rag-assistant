@@ -56,6 +56,24 @@ def load_cases(path: Path) -> list:
         return json.load(f)
 
 
+def _action_match_score(expected_actions, predicted_actions):
+    """Keyword-overlap scoring: fraction of expected actions whose key terms appear in predictions."""
+    if not expected_actions:
+        return None
+    if not predicted_actions:
+        return 0.0
+    pred_pool = " ".join(predicted_actions).lower()
+    matched = 0
+    for ea in expected_actions:
+        tokens = set(ea.lower().split()) - {""}
+        if not tokens:
+            continue
+        hit_ratio = sum(1 for t in tokens if t in pred_pool) / len(tokens)
+        if hit_ratio >= 0.5:
+            matched += 1
+    return round(matched / len(expected_actions), 3)
+
+
 def _set_ab_flags(use_rewrite: bool, use_rerank: bool):
     """Mutate app-module flags if they exist; silently skip if they don't."""
     if hasattr(app_module, "USE_QUERY_REWRITE"):
@@ -77,6 +95,7 @@ def evaluate_case(case: dict, mode_name: str = "single") -> dict:
     parsed_route = route_used
     parsed_memory = mem_hit
     top_sources = []
+    predicted_actions = []
     retrieved_count = None
     reranked_count = None
     raw_answer = None
@@ -93,6 +112,7 @@ def evaluate_case(case: dict, mode_name: str = "single") -> dict:
             parsed_route = parsed.get("route_used", route_used)
             parsed_memory = parsed.get("memory_used", mem_hit)
             top_sources = parsed.get("top_sources", []) or []
+            predicted_actions = parsed.get("recommended_actions", []) or []
             retrieved_count = parsed.get("retrieved_count")
             reranked_count = parsed.get("reranked_count")
             llm_ok = predicted_type is not None
@@ -105,12 +125,22 @@ def evaluate_case(case: dict, mode_name: str = "single") -> dict:
         retrieval_hit = None
         top_k_hit = None
         source_overlap = None
+        retrieval_recall = None
     else:
         expected_set = set(expected_sources)
         retrieval_hit = bool(expected_set & set(top_sources))
         top_k_slice = set(top_sources[:TOP_K])
         top_k_hit = bool(expected_set & top_k_slice)
         source_overlap = len(expected_set & top_k_slice)
+        retrieval_recall = round(len(expected_set & set(top_sources)) / len(expected_set), 3)
+
+    type_score = 1.0 if predicted_type == case["expected_anomaly_type"] else 0.0
+    expected_actions = case.get("expected_actions")
+    action_score = _action_match_score(expected_actions, predicted_actions)
+    if action_score is not None:
+        decision_match_score = round(0.5 * type_score + 0.5 * action_score, 3)
+    else:
+        decision_match_score = type_score
 
     return {
         "mode": mode_name,
@@ -135,6 +165,8 @@ def evaluate_case(case: dict, mode_name: str = "single") -> dict:
         "retrieval_hit": retrieval_hit,
         "top_k_hit": top_k_hit,
         "source_overlap": source_overlap,
+        "retrieval_recall": retrieval_recall,
+        "decision_match_score": decision_match_score,
     }
 
 
@@ -176,6 +208,12 @@ def compute_summary(results: list) -> dict:
     avg_retrieved = round(sum(retrieved_values) / len(retrieved_values), 2) if retrieved_values else None
     avg_reranked = round(sum(reranked_values) / len(reranked_values), 2) if reranked_values else None
 
+    recall_values = [r["retrieval_recall"] for r in results if r.get("retrieval_recall") is not None]
+    avg_retrieval_recall = round(sum(recall_values) / len(recall_values), 3) if recall_values else None
+
+    dm_values = [r["decision_match_score"] for r in results if r.get("decision_match_score") is not None]
+    avg_decision_match = round(sum(dm_values) / len(dm_values), 3) if dm_values else None
+
     return {
         "total_cases": total,
         "llm_responses_parsed": llm_ok,
@@ -189,6 +227,8 @@ def compute_summary(results: list) -> dict:
         "avg_source_overlap": avg_source_overlap,
         "avg_retrieved_count": avg_retrieved,
         "avg_reranked_count": avg_reranked,
+        "avg_retrieval_recall": avg_retrieval_recall,
+        "avg_decision_match": avg_decision_match,
     }
 
 
@@ -240,23 +280,25 @@ def _fmt(v):
 
 
 def print_ab_comparison(mode_runs: list) -> None:
-    bar = "=" * 84
+    bar = "=" * 98
     print("\n" + bar)
-    print("PHASE B  A/B COMPARISON — retrieval layer contribution")
+    print("A/B COMPARISON — retrieval & decision metrics by mode")
     print(bar)
-    header = f"{'MODE':<14}{'HIT_RATE':<11}{'TOPK':<8}{'OVERLAP':<10}{'RETR':<8}{'RERANK':<8}{'TYPE_ACC':<9}{'LLM_OK':<8}"
+    header = (f"{'MODE':<14}{'RECALL':<9}{'TOPK':<8}{'OVERLAP':<9}"
+              f"{'DEC_MATCH':<11}{'TYPE_ACC':<10}{'RETR':<7}{'RERANK':<8}{'LLM_OK':<8}")
     print(header)
-    print("-" * 84)
+    print("-" * 98)
     for run in mode_runs:
         s = run["summary"]
         row = (
             f"{run['mode']:<14}"
-            f"{_fmt(s.get('retrieval_hit_rate')):<11}"
+            f"{_fmt(s.get('avg_retrieval_recall')):<9}"
             f"{_fmt(s.get('top_k_hit_rate')):<8}"
-            f"{_fmt(s.get('avg_source_overlap')):<10}"
-            f"{_fmt(s.get('avg_retrieved_count')):<8}"
+            f"{_fmt(s.get('avg_source_overlap')):<9}"
+            f"{_fmt(s.get('avg_decision_match')):<11}"
+            f"{_fmt(s.get('anomaly_type_accuracy')):<10}"
+            f"{_fmt(s.get('avg_retrieved_count')):<7}"
             f"{_fmt(s.get('avg_reranked_count')):<8}"
-            f"{_fmt(s.get('anomaly_type_accuracy')):<9}"
             f"{s.get('call_success_count', 0)}/{s.get('total_cases', 0)}"
         )
         print(row)
