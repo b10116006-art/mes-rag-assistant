@@ -18,6 +18,7 @@ Outputs:
 """
 
 import json
+import math
 import os
 import sys
 import time
@@ -74,6 +75,36 @@ def _action_match_score(expected_actions, predicted_actions):
     return round(matched / len(expected_actions), 3)
 
 
+def _gain_map(case: dict, expected_sources) -> dict:
+    """Return {source: gain}. Uses case['expected_sources_graded'] if present, else binary 1.0 per expected source."""
+    graded = case.get("expected_sources_graded")
+    if isinstance(graded, dict) and graded:
+        return {k: float(v) for k, v in graded.items()}
+    return {s: 1.0 for s in (expected_sources or [])}
+
+
+def _mrr(retrieved: list, gains: dict) -> float:
+    """Reciprocal rank of first retrieved source with gain > 0. 0.0 if none."""
+    for i, src in enumerate(retrieved, start=1):
+        if gains.get(src, 0.0) > 0.0:
+            return round(1.0 / i, 3)
+    return 0.0
+
+
+def _ndcg_at_k(retrieved: list, gains: dict, k: int) -> float:
+    """Standard nDCG@k with linear gain and log2(i+1) discount. 0.0 if no relevant items."""
+    dcg = 0.0
+    for i, src in enumerate(retrieved[:k], start=1):
+        g = gains.get(src, 0.0)
+        if g > 0.0:
+            dcg += g / math.log2(i + 1)
+    ideal_gains = sorted(gains.values(), reverse=True)[:k]
+    idcg = sum(g / math.log2(i + 1) for i, g in enumerate(ideal_gains, start=1) if g > 0.0)
+    if idcg <= 0.0:
+        return 0.0
+    return round(dcg / idcg, 3)
+
+
 def _set_ab_flags(use_rewrite: bool, use_rerank: bool):
     """Mutate app-module flags if they exist; silently skip if they don't."""
     if hasattr(app_module, "USE_QUERY_REWRITE"):
@@ -126,6 +157,8 @@ def evaluate_case(case: dict, mode_name: str = "single") -> dict:
         top_k_hit = None
         source_overlap = None
         retrieval_recall = None
+        mrr = None
+        ndcg_at_k = None
     else:
         expected_set = set(expected_sources)
         retrieval_hit = bool(expected_set & set(top_sources))
@@ -133,6 +166,9 @@ def evaluate_case(case: dict, mode_name: str = "single") -> dict:
         top_k_hit = bool(expected_set & top_k_slice)
         source_overlap = len(expected_set & top_k_slice)
         retrieval_recall = round(len(expected_set & set(top_sources)) / len(expected_set), 3)
+        gains = _gain_map(case, expected_sources)
+        mrr = _mrr(top_sources, gains)
+        ndcg_at_k = _ndcg_at_k(top_sources, gains, TOP_K)
 
     type_score = 1.0 if predicted_type == case["expected_anomaly_type"] else 0.0
     expected_actions = case.get("expected_actions")
@@ -166,6 +202,9 @@ def evaluate_case(case: dict, mode_name: str = "single") -> dict:
         "top_k_hit": top_k_hit,
         "source_overlap": source_overlap,
         "retrieval_recall": retrieval_recall,
+        "mrr": mrr,
+        "ndcg_at_k": ndcg_at_k,
+        "ndcg_k": TOP_K,
         "decision_match_score": decision_match_score,
     }
 
@@ -211,6 +250,11 @@ def compute_summary(results: list) -> dict:
     recall_values = [r["retrieval_recall"] for r in results if r.get("retrieval_recall") is not None]
     avg_retrieval_recall = round(sum(recall_values) / len(recall_values), 3) if recall_values else None
 
+    mrr_values = [r["mrr"] for r in results if r.get("mrr") is not None]
+    avg_mrr = round(sum(mrr_values) / len(mrr_values), 3) if mrr_values else None
+    ndcg_values = [r["ndcg_at_k"] for r in results if r.get("ndcg_at_k") is not None]
+    avg_ndcg_at_k = round(sum(ndcg_values) / len(ndcg_values), 3) if ndcg_values else None
+
     dm_values = [r["decision_match_score"] for r in results if r.get("decision_match_score") is not None]
     avg_decision_match = round(sum(dm_values) / len(dm_values), 3) if dm_values else None
 
@@ -228,6 +272,9 @@ def compute_summary(results: list) -> dict:
         "avg_retrieved_count": avg_retrieved,
         "avg_reranked_count": avg_reranked,
         "avg_retrieval_recall": avg_retrieval_recall,
+        "avg_mrr": avg_mrr,
+        "avg_ndcg_at_k": avg_ndcg_at_k,
+        "ndcg_k": TOP_K,
         "avg_decision_match": avg_decision_match,
     }
 
@@ -280,14 +327,15 @@ def _fmt(v):
 
 
 def print_ab_comparison(mode_runs: list) -> None:
-    bar = "=" * 98
+    bar = "=" * 114
     print("\n" + bar)
     print("A/B COMPARISON — retrieval & decision metrics by mode")
     print(bar)
     header = (f"{'MODE':<14}{'RECALL':<9}{'TOPK':<8}{'OVERLAP':<9}"
+              f"{'MRR':<8}{'NDCG@3':<9}"
               f"{'DEC_MATCH':<11}{'TYPE_ACC':<10}{'RETR':<7}{'RERANK':<8}{'LLM_OK':<8}")
     print(header)
-    print("-" * 98)
+    print("-" * 114)
     for run in mode_runs:
         s = run["summary"]
         row = (
@@ -295,6 +343,8 @@ def print_ab_comparison(mode_runs: list) -> None:
             f"{_fmt(s.get('avg_retrieval_recall')):<9}"
             f"{_fmt(s.get('top_k_hit_rate')):<8}"
             f"{_fmt(s.get('avg_source_overlap')):<9}"
+            f"{_fmt(s.get('avg_mrr')):<8}"
+            f"{_fmt(s.get('avg_ndcg_at_k')):<9}"
             f"{_fmt(s.get('avg_decision_match')):<11}"
             f"{_fmt(s.get('anomaly_type_accuracy')):<10}"
             f"{_fmt(s.get('avg_retrieved_count')):<7}"
@@ -343,6 +393,30 @@ def print_interpretation(mode_runs: list) -> None:
                 print(f"  Rerank contributed more (+{rr_delta:.3f}) than query rewrite (+{rw_delta:.3f}).")
             else:
                 print(f"  Rewrite (+{rw_delta:.3f}) and rerank (+{rr_delta:.3f}) contributed roughly equally.")
+
+    base_ndcg = _get("baseline", "avg_ndcg_at_k")
+    full_ndcg = _get("full", "avg_ndcg_at_k")
+    if base_ndcg is not None and full_ndcg is not None:
+        nd = full_ndcg - base_ndcg
+        if nd > 0.01:
+            print(f"  nDCG@3 improved: {base_ndcg:.3f} → {full_ndcg:.3f} ({nd:+.3f}).")
+        elif nd < -0.01:
+            print(f"  nDCG@3 DEGRADED: {base_ndcg:.3f} → {full_ndcg:.3f} ({nd:+.3f}).")
+        else:
+            print(f"  nDCG@3 flat: {base_ndcg:.3f} → {full_ndcg:.3f}.")
+
+    base_mrr = _get("baseline", "avg_mrr")
+    rw_mrr = _get("rewrite_only", "avg_mrr")
+    rr_mrr = _get("rerank_only", "avg_mrr")
+    if base_mrr is not None and rw_mrr is not None and rr_mrr is not None:
+        rw_d = rw_mrr - base_mrr
+        rr_d = rr_mrr - base_mrr
+        if rw_d > rr_d + 0.01:
+            print(f"  MRR: rewrite contributed more ({rw_d:+.3f}) than rerank ({rr_d:+.3f}).")
+        elif rr_d > rw_d + 0.01:
+            print(f"  MRR: rerank contributed more ({rr_d:+.3f}) than rewrite ({rw_d:+.3f}).")
+        else:
+            print(f"  MRR: rewrite ({rw_d:+.3f}) and rerank ({rr_d:+.3f}) contributed roughly equally.")
 
     if base_type is not None and full_type is not None:
         t_delta = full_type - base_type
