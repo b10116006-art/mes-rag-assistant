@@ -262,5 +262,181 @@
     "expected_actions": ["確認腔體溫度", "對比 PECVD log"],
     "tag": "anomaly",
     "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-025",
+    "query": "TiN 片電阻 單向漂高 靶材使用率 85%",
+    "expected_anomaly_type": "sheet_resistance",
+    "expected_memory_used": true,
+    "expected_route_used": "memory",
+    "expected_sources": ["01_異常類型定義.md", "04_設備常見問題集.md"],
+    "expected_actions": ["查看靶材 kWh 累積", "計劃換靶"],
+    "tag": "anomaly",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-026",
+    "query": "CMP WIWNU 突然變差 conditioner 鑽石盤 磨耗",
+    "expected_anomaly_type": "uniformity_fail",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["確認 conditioner 壽命", "確認研磨墊使用時數"],
+    "tag": "anomaly",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-027",
+    "query": "ILD CMP dishing 大面積下凹 AFM 量測 處置",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md", "01_異常類型定義.md"],
+    "expected_actions": ["縮短研磨時間", "降低研磨壓力"],
+    "tag": "anomaly",
+    "difficulty": "hard"
+  },
+  {
+    "id": "EVAL-028",
+    "query": "gate etch 速率漂高 終點偵測 提前觸發",
+    "expected_anomaly_type": "etch_rate_drift",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["確認 EPD 信號", "比對 resist CD"],
+    "tag": "anomaly",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-029",
+    "query": "Hold lot 解除條件 Section Manager 簽核 流程",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_actions": ["Process Engineer 完成根因確認", "Section Manager 簽核放行"],
+    "tag": "sop",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-030",
+    "query": "MES 異常回報 必填欄位 格式 偏離方向",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_actions": ["填寫設備 ID 與發生時間", "標註偏離方向 HIGH 或 LOW"],
+    "tag": "sop",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-031",
+    "query": "PM 後驗機 dummy wafer 三片 conditioning 流程",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_actions": ["執行 dummy wafer run 三片", "對比 PM 前 baseline"],
+    "tag": "sop",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-032",
+    "query": "scrap rate 超過 2% 月警戒 yield review meeting",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "expected_sources": ["02_SOP_異常處置流程.md"],
+    "expected_actions": ["觸發 Yield Review Meeting", "輸入製程層別及異常批號"],
+    "tag": "sop",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-033",
+    "query": "PVD 濺鍍 磁控管 磁場不對稱 wafer 邊緣 Rs 差異",
+    "expected_anomaly_type": "uniformity_fail",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["確認磁控管磁場", "確認基板旋轉機構"],
+    "tag": "equipment",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-034",
+    "query": "CMP retaining ring 磨損 邊緣 WIWNU 異常",
+    "expected_anomaly_type": "uniformity_fail",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["檢查 retaining ring 磨耗", "確認研磨頭各 zone 壓力"],
+    "tag": "equipment",
+    "difficulty": "hard"
+  },
+  {
+    "id": "EVAL-035",
+    "query": "oxide etch micro-loading 密集圖案速率偏低 處理",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["降低 pressure", "提高 bias power"],
+    "tag": "equipment",
+    "difficulty": "hard"
+  },
+  {
+    "id": "EVAL-036",
+    "query": "MES 查詢 近 30 天 OOC 記錄 SPC module",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "rag",
+    "expected_sources": ["04_設備常見問題集.md"],
+    "expected_actions": ["進入 SPC Module 選擇設備", "篩選 OOC Events"],
+    "tag": "equipment",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-037",
+    "query": "risk_level HIGH 觸發條件 void scrap_count worsening",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_actions": [],
+    "tag": "ai_logic",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-038",
+    "query": "記憶檢索 排序 layer machine_id anomaly_type 分數",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": ["03_AI_Copilot判斷邏輯.md"],
+    "expected_actions": [],
+    "tag": "ai_logic",
+    "difficulty": "medium"
+  },
+  {
+    "id": "EVAL-039",
+    "query": "double patterning 雙重曝光 原理 解析度",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": [],
+    "expected_actions": [],
+    "tag": "general",
+    "difficulty": "easy"
+  },
+  {
+    "id": "EVAL-040",
+    "query": "Cu damascene 銅製程 大馬士革 流程",
+    "expected_anomaly_type": "general",
+    "expected_memory_used": false,
+    "expected_route_used": "llm",
+    "expected_sources": [],
+    "expected_actions": [],
+    "tag": "general",
+    "difficulty": "easy"
   }
 ]
