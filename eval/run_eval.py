@@ -27,6 +27,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+# Patch ChatOpenAI default timeout BEFORE app.py imports it.
+# Reason: OpenAI SDK default timeout is 600s; a slow API response can hang
+# the eval (Ctrl+C cannot interrupt blocking socket I/O). 60s + retry=1
+# means worst-case 120s per call, then existing try/except in evaluate_case
+# catches the exception and the eval continues.
+# Override via env: LLM_TIMEOUT_SEC (default 60), LLM_MAX_RETRIES (default 1)
+try:
+    from langchain_openai import ChatOpenAI as _ChatOpenAI
+    _llm_timeout = float(os.environ.get("LLM_TIMEOUT_SEC", "60"))
+    _llm_retries = int(os.environ.get("LLM_MAX_RETRIES", "1"))
+    _orig_chat_init = _ChatOpenAI.__init__
+    def _patched_chat_init(self, *args, **kwargs):
+        kwargs.setdefault("timeout", _llm_timeout)
+        kwargs.setdefault("max_retries", _llm_retries)
+        _orig_chat_init(self, *args, **kwargs)
+    _ChatOpenAI.__init__ = _patched_chat_init
+    print(f"ChatOpenAI patched: timeout={_llm_timeout}s, max_retries={_llm_retries}")
+except Exception as _e:
+    print(f"ChatOpenAI patch skipped: {_e}")
+
 import app as app_module  # noqa: E402  — module ref for flag mutation
 from app import (  # noqa: E402
     build_rag_system,
@@ -50,6 +70,14 @@ AB_MODES = [
     ("rerank_only",  False, True),
     ("full",         True,  True),
 ]
+
+# Optional env-var filter: e.g. AB_MODES_FILTER=baseline,rerank_only
+# Useful when MultiQueryRetriever in rewrite modes is slow / hangs.
+_ab_filter = os.environ.get("AB_MODES_FILTER", "").strip()
+if _ab_filter:
+    _wanted = {m.strip() for m in _ab_filter.split(",") if m.strip()}
+    AB_MODES = [m for m in AB_MODES if m[0] in _wanted]
+    print(f"AB_MODES_FILTER active — running modes: {[m[0] for m in AB_MODES]}")
 
 
 def load_cases(path: Path) -> list:
@@ -455,6 +483,9 @@ def main() -> int:
         try:
             for mode_name, use_rewrite, use_rerank in AB_MODES:
                 mode_runs.append(run_mode(mode_name, use_rewrite, use_rerank, cases))
+                # Incremental save after each mode so Ctrl+C salvages partial results
+                with open(AB_RESULTS_PATH, "w", encoding="utf-8") as _f:
+                    json.dump({"modes": mode_runs}, _f, ensure_ascii=False, indent=2)
         finally:
             _set_ab_flags(saved_rw, saved_rr)
 
