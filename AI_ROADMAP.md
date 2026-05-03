@@ -25,10 +25,13 @@ This index is the single source of truth for phase state. Individual phase secti
 | 5 | Trust Layer (scoring) | `compute_trust_score()` + `trust_score` / `trust_level` / `trust_reason` (analysis + chat) |
 | 6 | Retrieval Quality / Rerank | `rerank_docs()` + `make_rerank_retriever()` + `retrieved_count` / `reranked_count` / `top_sources` |
 | 6.5 | Retrieval Evaluation Metrics | `expected_sources` labels + `retrieval_hit_rate` / `top_k_hit_rate` / `avg_source_overlap` in eval summary |
+| 6.6 | Retrieval A/B Measurement | `eval/eval_ab_results.json` — 4-mode (baseline / rewrite_only / rerank_only / full) × 40 cases |
 
 ### 🔜 Near-term next work (planned)
 
-- **Phase 6.6** — A/B measurement of rewrite and rerank against Phase 6.5 metrics
+- **Phase 6.6** — A/B measurement of rewrite and rerank against Phase 6.5 metrics (✅ Completed — see Implemented table; A/B artifact committed)
+- **Course-driven gap items** (G1–G4) — see "Course-driven gap items" section below; scheduled by **dependency**, not by recency
+- **Enterprise readiness track** (ENT-1 → ENT-3) — see "Enterprise readiness track" section below
 - **Near-term engineering backlog** (see dedicated section) — chunking strategy, embedding selection, cross-encoder rerank, larger benchmark, multimodal RAG
 
 ### 🗺 Long-term roadmap
@@ -220,7 +223,7 @@ Larger workstreams that require dedicated design and likely touch more than one 
 
 ## Phase 6.6: Retrieval A/B Measurement
 
-**Status:** Planned. Recommended next coding phase.
+**Status:** ✅ Implemented. A/B artifact committed in `eval/eval_ab_results.json` covering the four modes (baseline / rewrite_only / rerank_only / full) over the 40-case benchmark. (Originally documented as: "Planned. Recommended next coding phase." — preserved here for historical context.)
 
 **Objective:** Use the Phase 6.5 metric surface to measure the actual contribution of each retrieval-quality layer shipped so far (query rewrite, rerank), so we can defend keeping them, tuning them, or replacing them.
 
@@ -308,6 +311,138 @@ This is the concrete work the team is most likely to pick up after Phase 6.6 fin
 **Why:** Real FAB documentation lives in PDFs and scanned images, not pre-cleaned markdown. Until the ingestion pipeline can absorb those sources, the retrieval layer is artificially limited to whatever someone hand-converts into `rag_data/`.
 
 **Unblocks:** The entire "long-term multimodal document understanding" roadmap item. Also lets trust signals cite real production documents instead of demo markdown.
+
+---
+
+## Course-driven gap items
+
+Net-new items derived from `COURSE_TECH_GAP_ANALYSIS.md` (Apr 2026). They are scheduled by **dependency**, not by recency — see "Dependency-aware execution sequence" below for the full ordering. Each item is sized to the minimal-diff / additive-only discipline and carries explicit upstream blockers so we do not trial multiple changes in parallel and lose attribution.
+
+Items are listed in execution (dependency) order: G2 → G4 → G3 → G1.
+
+### G2 — Metadata filter (`doc_type` tag + Chroma filter)
+
+**What:** Tag every chunk with `doc_type` ∈ {`anomaly`, `sop`, `ai_logic`, `equipment`}. Use the existing `classify_query()` (Phase 3) to set a `where=` filter on Chroma so the retriever only sees chunks of the right type.
+
+**Why:** Today all chunks share one search space. Queries like "ILD 異常處理 SOP" hit anomaly definitions before the actual SOP content. Eval shows ~5 of 40 cases mis-route for this single root cause.
+
+**Dependencies:** None. Independent of Phase 6.6 closeout. **IMMEDIATE.**
+
+**Affects:** `rag_data/` (metadata header), `app.py` (Chroma `where=` plumbing). Schema unchanged.
+
+**Acceptance:** ≥3 of the currently-misclassified cases recover their `expected_sources` hit. No regression on previously-passing cases (gated by G4).
+
+### G4 — Eval baseline regression gate
+
+**What:** Add `eval/run_baseline_check.py` and `eval/baseline_metrics.json`. Run eval, compare against the committed Phase 6.6 baseline, exit non-zero on regression of any tracked metric beyond a configured tolerance.
+
+**Why:** Phase 6.6 produced one baseline. Without a gate, the next change that lowers `retrieval_hit_rate` by 4 points lands silently. This turns the baseline into a contract.
+
+**Dependencies:** Phase 6.6 closeout (need a committed baseline to gate against — ✅ already done). **IMMEDIATE.**
+
+**Affects:** `eval/` only. Runtime path (`app.py`) untouched.
+
+**Acceptance:** Script runs locally, exits 1 on synthetic regression, exits 0 on the current baseline. `baseline_metrics.json` committed alongside the script.
+
+### G3 — LLM-based query rewrite (gated path)
+
+**What:** Add an LLM rewrite path alongside the existing heuristic `rewrite_query()`. Flag-toggleable; the original heuristic remains the default fallback.
+
+**Why:** Phase 4.6's heuristic is deterministic but only handles known vocabulary. An LLM rewrite can resolve implicit context (layer / machine / step) at the cost of an extra LLM call per query. Whether the cost is worth it is an empirical question — needs A/B data on the *expanded* benchmark, not the 40-case set.
+
+**Dependencies:** **Backlog #4** (100+ benchmark) — 40 cases too noisy to detect realistic 3–5 point deltas. Also G4 (regression gate must exist before trialing).
+
+**Affects:** `app.py` — `rewrite_query()` adds an LLM branch behind a flag.
+
+**Acceptance:** A/B comparison vs the heuristic on the 100+ benchmark. Ships only if `retrieval_hit_rate` or `top_k_hit_rate` improves by a margin larger than measurement noise. Otherwise: flag stays off, code stays for future re-eval.
+
+**Cross-reference:** Refines the "LLM-based rewrite (deferred)" bullet under Phase 4.6 — does not replace it.
+
+### G1 — LoRA fine-tune embedding model
+
+**What:** LoRA-adapt the embedding model selected by **backlog #2** on the project's domain corpus + eval positives. New script `scripts/finetune_embedding.py`.
+
+**Why:** Off-the-shelf multilingual embeddings cluster semiconductor terminology poorly — "ILD 異常定義" and "ILD SOP 步驟" land too close in vector space. LoRA injects domain separation without retraining the full model (~333× fewer trainable params).
+
+**Dependencies:** **Backlog #2** (embedding benchmark must select a base model first — fine-tuning the wrong base model is wasted effort). Also backlog #4 (need the larger labeled set as training/validation positives).
+
+**Affects:** New `scripts/finetune_embedding.py`. `app.py` only switches when the adapter is proven on the G4 gate.
+
+**Acceptance:** Adapter beats unaltered base model by a margin larger than noise on `retrieval_hit_rate` and `nDCG@3`. Otherwise: artifact retained, not loaded by `app.py`.
+
+**Cross-reference:** Refines backlog #2 ("Embedding model selection / tuning") — fine-tune is the *tuning* half of that item.
+
+---
+
+## Enterprise readiness track
+
+Net-new items from interview / JD feedback. Strictly serving / ops scope — no business-logic, no AOI, no MES runtime. Sequenced **after** Phase 7 except ENT-1, which can wrap the current Gradio prototype today and update its Dockerfile when FastAPI lands (no throwaway work).
+
+Items listed in execution (dependency) order: ENT-1 → Phase 7 → ENT-2 → ENT-3.
+
+### ENT-1 — Docker
+
+**What:** `Dockerfile` + `docker-compose.yml` wrapping the current Gradio app + Chroma volume. After Phase 7 ships, update the Dockerfile to use the FastAPI entrypoint.
+
+**Why:** Decouples deployment from local Python. Reusable across Phase 7 / ENT-2 / ENT-3. No throwaway work — same Dockerfile evolves in lockstep with the serving layer.
+
+**Dependencies:** None — can run before Phase 7.
+
+**Affects:** Net-new files. No application code change.
+
+### ENT-2 — API auth + rate limiting
+
+**What:** API-key middleware + `slowapi` rate limiting on the FastAPI surface.
+
+**Why:** Bare endpoints are not deployable to a shared environment. Demonstrates awareness of the basic enterprise contract.
+
+**Dependencies:** **Phase 7** (needs FastAPI to exist).
+
+**Affects:** Future `api/main.py`.
+
+### ENT-3 — `/health` + `/metrics`
+
+**What:** Liveness / readiness check + Prometheus-format metrics endpoint (request count, latency histogram, provider usage, error rate).
+
+**Why:** Observable systems are debuggable systems. Required to claim "production-ready" with a straight face.
+
+**Dependencies:** **Phase 7**.
+
+**Affects:** Future `api/main.py`.
+
+---
+
+## Dependency-aware execution sequence
+
+This sequence is by **dependency**, not by item recency. New ideas wait for their blockers; no item starts ahead of its measurement floor. The full rationale appears in the IMMEDIATE → LONG-TERM block in `NEXT_STEPS.md`; the per-item dependency annotations live with each item above.
+
+```
+IMMEDIATE  → 1. Phase 6.6 closeout (✅ done)
+             2. G4 — eval baseline regression gate
+             3. G2 — metadata filter
+             4. Doc reconciliation (PROJECT_STATE.md, NEXT_STEPS.md)
+
+SHORT-TERM → 5. Backlog #4 — expand benchmark to 100+ cases + inter-rater (20%)
+             6. Backlog #2 — embedding model benchmark (under G4 gate)
+             7. Backlog #1 — chunking strategy A/B (under G4 gate)
+
+MID-TERM   → 8. Backlog #3 — cross-encoder rerank (consumes G2-filtered candidates)
+             9. G3 — LLM-based query rewrite (gated A/B on 100+ benchmark)
+            10. G1 — LoRA fine-tune (only after backlog #2 selects a base model)
+
+LONG-TERM  → 11. ENT-1 — Docker (parallel-track, can start any time)
+            12. Phase 7 — FastAPI serving
+            13. ENT-2 — API auth, ENT-3 — /health + /metrics
+            14. Phase 8 — ingestion, Phase 9 — reliability, Backlog #5 — multimodal
+```
+
+**Ordering rationale (the four "before" rules):**
+
+- **Phase 6.6 closeout BEFORE any retrieval/embedding tuning.** Without a committed baseline, every later "we improved X by Y points" claim is unfalsifiable.
+- **G4 BEFORE the short-term A/B work.** Phase 6.6 produced one baseline; G4 turns it into a gate. Without G4 you trial three changes in parallel and lose attribution.
+- **G2 metadata filter BEFORE backlog #3 cross-encoder.** Filter then rank — a cross-encoder on top of unfiltered candidates is doing two jobs and you can't attribute its gains.
+- **Backlog #4 BEFORE G3 (LLM rewrite) and G1 (LoRA).** 40 cases are too few to detect realistic 3–5 point deltas; tuning runs on insufficient data are noise.
+- **Backlog #2 BEFORE G1 (LoRA).** Fine-tuning the wrong base model is wasted GPU.
 
 ---
 
