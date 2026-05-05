@@ -61,8 +61,8 @@ User Query
 
 | Feature | Description |
 |---------|-------------|
-| Multi-Query RAG | LangChain + ChromaDB over `rag_data/*.md` with multilingual embeddings |
-| Memory Layer | Historical anomaly case matching via keyword-token overlap |
+| Multi-Query RAG | LangChain + ChromaDB over `rag_data/*.md` with multilingual embeddings (Chinese + English) |
+| Memory Layer | 5-seed historical anomaly case store with keyword-token overlap matching |
 | Structured Output | Pydantic-validated `MESAnalysisOutput` with retry on parse failure |
 | Decision Router | Heuristic query classifier → memory / rag / llm routing |
 | Query Rewrite | Domain vocabulary expansion for semiconductor terms |
@@ -70,7 +70,7 @@ User Query
 | Trust Scoring | Composite trust score (0–1) based on memory hit, route, provider |
 | Retrieval Rerank | Token-overlap reranker with `top_sources` debug signals |
 | Evaluation Framework | 40-case / 4-mode A/B benchmark (`eval/run_eval.py`) |
-| Provider Routing | Gemini primary / OpenAI fallback with auto-switch |
+| Provider Routing | Gemini primary / OpenAI fallback with automatic failover |
 
 ## Project Structure
 
@@ -132,7 +132,9 @@ python run_eval.py
 
 **Tracked metrics:** `anomaly_type_accuracy`, `retrieval_hit_rate`, `top_k_hit_rate`, `avg_source_overlap`
 
-> **Note:** Current benchmark is 40 cases. Results are suited for regression detection, not production accuracy certification. See `AI_ROADMAP.md` Phase 6.6 for details.
+Results are committed in `eval/eval_ab_results.json` for full reproducibility. Run `python eval/run_eval.py` to verify against your own LLM provider.
+
+> **Note:** Current benchmark is 40 cases (37 graded). The harness is designed for regression detection across controlled diffs. See `AI_ROADMAP.md` Phase 6.6 for scope and limitations.
 
 ## Development Status
 
@@ -157,7 +159,7 @@ See [AI_ROADMAP.md](AI_ROADMAP.md) for full phase details and dependency-aware e
 ## Tech Stack
 
 - **LLM:** Google Gemini 2.5 Flash (primary) / OpenAI GPT-4o (fallback)
-- **Embeddings:** `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+- **Embeddings:** `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (Chinese + English)
 - **Vector Store:** ChromaDB
 - **Framework:** LangChain + Gradio
 - **Validation:** Pydantic v2
