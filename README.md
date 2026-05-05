@@ -1,140 +1,167 @@
----
-title: FAB Copilot MES RAG Assistant
-emoji: 🏭
-colorFrom: blue
-colorTo: indigo
-sdk: gradio
-sdk_version: 5.23.3
-app_file: app.py
-pinned: false
-license: mit
----
+# MES RAG Assistant
 
-# MES RAG Assistant — FAB Copilot Knowledge & Decision Core
+RAG/LLM-based decision core for semiconductor manufacturing — retrieves domain knowledge and returns structured engineering decisions.
 
-## Purpose
+## What It Does
 
-This repo is the **RAG / LLM decision brain** for the FAB AI Copilot system.
-It handles knowledge retrieval, LLM reasoning, structured output, and evaluation.
-It does **not** run MES pipelines, dashboards, or AOI vision training.
+Given an anomaly description or engineering question, the system:
 
-## What this repo does today
+1. **Retrieves** relevant knowledge from curated SOP / FMEA / FAQ documents via ChromaDB vector search
+2. **Augments** context with historical anomaly cases (memory layer)
+3. **Reasons** over combined context using Gemini or OpenAI
+4. **Returns** a structured JSON decision (`MESAnalysisOutput`) with root cause, recommended actions, confidence, and trust scoring
 
-- Multi-Query RAG over semiconductor process knowledge documents (`rag_data/`)
-- Gemini primary / OpenAI fallback provider routing with automatic retry
-- Structured engineering analysis output (`MESAnalysisOutput` via Pydantic)
-- Gradio demo UI for local testing and interview demos
-- ChromaDB vector store with multilingual HuggingFace embeddings
+This repo is the **decision brain** of the FAB AI Copilot system. It does not own dashboards, pipelines, or notifications — it produces decisions that other systems act on.
 
-## What belongs in this repo
+## Architecture
 
-| In scope | Description |
-|---|---|
-| RAG retrieval | Document chunking, vector store, multi-query |
-| LLM reasoning | Chat and structured analysis chains |
-| Memory-based retrieval | Historical event context injection (Phase 1) |
-| Structured output | Pydantic-validated JSON decision schema |
-| Evaluation | Retrieval and decision quality metrics (Phase 4) |
-| Provider routing | Gemini / OpenAI failover, future cloud providers |
-| Cloud-ready serving | FastAPI serving layer (Phase 7) |
+```
+User Query
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│  Query Rewrite (heuristic expansion)    │
+│  → expands abbreviations + domain terms │
+└────────────────┬────────────────────────┘
+                 │
+    ┌────────────▼────────────┐
+    │   Query Classifier      │
+    │  (case / sop / general) │
+    └────────────┬────────────┘
+                 │
+    ┌────────────▼────────────┐
+    │   Decision Router       │
+    │  memory → rag → llm     │
+    └────┬──────┬──────┬──────┘
+         │      │      │
+    ┌────▼──┐ ┌─▼───┐ ┌▼────┐
+    │Memory │ │ RAG │ │ LLM │
+    │Store  │ │Chroma│ │Only │
+    └───┬───┘ └──┬──┘ └──┬──┘
+        └────────┼───────┘
+                 │
+    ┌────────────▼────────────┐
+    │  Token-Overlap Reranker │
+    └────────────┬────────────┘
+                 │
+    ┌────────────▼────────────┐
+    │  LLM Chain              │
+    │  (Gemini / OpenAI)      │
+    └────────────┬────────────┘
+                 │
+    ┌────────────▼────────────┐
+    │  Structured Output      │
+    │  MESAnalysisOutput      │
+    │  + Trust Score           │
+    │  + Evidence Sources      │
+    └─────────────────────────┘
+```
 
-## What this repo is / is not
+## Key Features
 
-**This repo is:**
-- A decision-core / retrieval-core layer for semiconductor process analysis
-- Designed for integration with AI MES Copilot
-- Compatible with future AOI evidence contracts (additive input, not runtime coupling)
+| Feature | Description |
+|---------|-------------|
+| Multi-Query RAG | LangChain + ChromaDB over `rag_data/*.md` with multilingual embeddings |
+| Memory Layer | Historical anomaly case matching via keyword-token overlap |
+| Structured Output | Pydantic-validated `MESAnalysisOutput` with retry on parse failure |
+| Decision Router | Heuristic query classifier → memory / rag / llm routing |
+| Query Rewrite | Domain vocabulary expansion for semiconductor terms |
+| Hallucination Control | `evidence_sources`, `confidence_reason`, `uncertainty_flag` |
+| Trust Scoring | Composite trust score (0–1) based on memory hit, route, provider |
+| Retrieval Rerank | Token-overlap reranker with `top_sources` debug signals |
+| Evaluation Framework | 40-case / 4-mode A/B benchmark (`eval/run_eval.py`) |
+| Provider Routing | Gemini primary / OpenAI fallback with auto-switch |
 
-**This repo is NOT:**
-- MES runtime system
-- Real-time ingestion layer (MQTT / streaming)
-- Dashboard backend or frontend
-- AOI training or inference pipeline
+## Project Structure
 
-## What does NOT belong in this repo
+```
+mes-rag-assistant/
+├── app.py                    # Main application (Gradio + all chains)
+├── requirements.txt
+├── .env.example              # Required environment variables
+├── rag_data/                 # Knowledge base documents
+│   ├── 01_異常類型定義.md
+│   ├── 02_SOP_異常處置流程.md
+│   ├── 03_AI_Copilot判斷邏輯.md
+│   └── 04_設備常見問題集.md
+├── memory/
+│   └── memory_store.json     # Historical anomaly cases
+├── eval/
+│   ├── run_eval.py           # Evaluation harness
+│   ├── eval_cases.json       # 40 labeled test cases
+│   └── eval_ab_results.json  # 4-mode A/B comparison results
+├── ARCHITECTURE.md           # Integration boundaries
+├── AI_ROADMAP.md             # Development roadmap
+└── CHANGELOG.md              # Phase-by-phase changelog
+```
 
-- AOI / computer vision training or inference
-- MES MQTT ingestion or real-time data pipeline
-- MES dashboard backend or frontend
-- Machine utilization business logic
-- LINE notification delivery
-
-## Current capabilities (as of Phase 6.6-prep)
-
-- Multi-mode RAG evaluation (baseline / rewrite_only / rerank_only / full)
-- Query rewrite toggle (`USE_QUERY_REWRITE`)
-- Retrieval rerank toggle (`USE_RERANK`) with budget parity across modes
-- Memory retrieval integration (historical anomaly cases)
-- Structured decision outputs with schema-guided evaluation (Pydantic-based)
-- Trust-oriented evaluation signals and retrieval observability (partial / MVP)
-- Action-level decision scoring (`decision_match_score` with keyword overlap)
-
-**System maturity:** Core capabilities are implemented. Many components are still MVP or partial. Current focus is on comparability and evaluation correctness, not production deployment.
-
-## Local run
+## Quick Start
 
 ```bash
+# Clone
+git clone https://github.com/b10116006-art/mes-rag-assistant.git
+cd mes-rag-assistant
+
+# Install dependencies
 pip install -r requirements.txt
 
-export GEMINI_API_KEY=your_key      # required
-export OPENAI_API_KEY=your_key      # optional fallback
+# Configure environment
+cp .env.example .env
+# Edit .env — add at least one LLM provider key (Gemini or OpenAI)
 
+# Run
 python app.py
-# → http://localhost:7860
+# Opens Gradio UI at http://localhost:7860
 ```
 
-Add knowledge documents as `.md` files to `rag_data/` before running.
+## Evaluation
 
-## Local evaluation (Phase 4 / 6.5 / 6.6)
-
-A small offline evaluation harness lives under `eval/`. It runs a labeled case set through the analysis path and reports decision / routing / memory accuracy plus retrieval quality metrics, and supports a 4-mode A/B grid over query rewrite and rerank — no API endpoints, no dashboards.
+The eval framework benchmarks retrieval quality and decision accuracy across 4 modes:
 
 ```bash
-python eval/run_eval.py
+cd eval
+python run_eval.py
 ```
 
-- Cases: `eval/eval_cases.json` (40 labeled queries across anomaly / SOP / equipment / AI-logic / general tags)
-- Results: `eval/eval_results.json` (per-case detail for the full-mode run) and `eval/eval_ab_results.json` (all 4 A/B modes)
-- Memory, routing, and retrieval metrics work even without API keys; `anomaly_type_accuracy` requires a live LLM
+| Mode | Query Rewrite | Rerank | Purpose |
+|------|:---:|:---:|---------|
+| baseline | off | off | Control group |
+| rewrite_only | on | off | Rewrite contribution |
+| rerank_only | off | on | Rerank contribution |
+| full | on | on | Production behavior |
 
-### Evaluation status (honest scope)
+**Tracked metrics:** `anomaly_type_accuracy`, `retrieval_hit_rate`, `top_k_hit_rate`, `avg_source_overlap`
 
-- **Small benchmark** — 40 total cases, 37 graded with `expected_sources`. Wide confidence intervals; single-case flips can move rate metrics by 2–3 percentage points.
-- **Regression-detection oriented** — the harness is designed to catch "did my change make the stack worse?" on a controlled diff. It is not designed to certify production accuracy.
-- **Not a production accuracy certification** — any numbers produced by this harness should not be cited as final model performance. Mocked smoke runs in particular validate the A/B framework itself and do not reflect live LLM behavior.
-- **Larger benchmark required before strong claims** — expanding to 100+ curated, inter-rater-reviewed cases is listed as the next step in `AI_ROADMAP.md` under Phase 6.6.
+> **Note:** Current benchmark is 40 cases. Results are suited for regression detection, not production accuracy certification. See `AI_ROADMAP.md` Phase 6.6 for details.
 
-## HF Secrets (Hugging Face Space)
+## Development Status
 
-- `GEMINI_API_KEY`
-- `OPENAI_API_KEY`
-- `GEMINI_MODEL` (optional, default: `gemini-2.5-flash`)
+| Phase | Name | Status |
+|-------|------|--------|
+| 0 | Repo Foundation | ✅ Implemented |
+| 1 | Memory-based RAG | ✅ Implemented |
+| 2 | Structured Decision Output | ✅ Implemented |
+| 3 | Context Orchestrator / Router | ✅ Implemented |
+| 4 | Evaluation Layer (MVP → 40-case) | ✅ Implemented |
+| 4.5 | Hallucination Control | ✅ Implemented |
+| 4.6 | Query Rewrite | ✅ Implemented |
+| 5 | Trust Scoring | ✅ Implemented |
+| 6 | Retrieval Rerank | ✅ Implemented |
+| 6.5 | Retrieval Evaluation Metrics | ✅ Implemented |
+| 6.6 | Retrieval A/B Measurement | ✅ Implemented |
+| G4 | Baseline Regression Gate | 🔧 In Progress |
+| 7 | Cloud-ready FastAPI Serving | 📋 Planned |
 
-## Roadmap summary
+See [AI_ROADMAP.md](AI_ROADMAP.md) for full phase details and dependency-aware execution sequence.
 
-| Phase | Focus |
-|---|---|
-| 0 | Repo foundation (current) |
-| 1 | Memory-based RAG |
-| 2 | Structured Decision Output |
-| 3 | Context Orchestrator |
-| 4 | Evaluation Layer |
-| 5 | Decision Engine |
-| 6 | Reliability / Provider Routing |
-| 7 | Cloud-ready Deployment |
-| 8 | Document Normalization |
+## Tech Stack
 
-See [AI_ROADMAP.md](AI_ROADMAP.md) for full phase details.
+- **LLM:** Google Gemini 2.5 Flash (primary) / OpenAI GPT-4o (fallback)
+- **Embeddings:** `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+- **Vector Store:** ChromaDB
+- **Framework:** LangChain + Gradio
+- **Validation:** Pydantic v2
 
+## Related Projects
 
-User / MES / AOI
-      ↓
-RAG retrieval (docs + memory)
-      ↓
-Context assembly
-      ↓
-LLM reasoning
-      ↓
-Structured output
-      ↓
-Return to MES / UI
+- [AOI Defect Triage](https://github.com/b10116006-art/AOI_Defect_Triage_v1) — CNN + YOLO defect classification system (future evidence input to this RAG system)
