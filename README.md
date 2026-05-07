@@ -88,7 +88,9 @@ mes-rag-assistant/
 │   └── memory_store.json     # Historical anomaly cases
 ├── eval/
 │   ├── run_eval.py           # Evaluation harness
+│   ├── run_baseline_check.py # G4 regression gate (compares against baseline)
 │   ├── eval_cases.json       # 40 labeled test cases
+│   ├── eval_results.json     # Latest single-mode eval output
 │   └── eval_ab_results.json  # 4-mode A/B comparison results
 ├── ARCHITECTURE.md           # Integration boundaries
 ├── AI_ROADMAP.md             # Development roadmap
@@ -151,6 +153,8 @@ Results are committed in `eval/eval_ab_results.json` for full reproducibility. R
 | 6 | Retrieval Rerank | ✅ Implemented |
 | 6.5 | Retrieval Evaluation Metrics | ✅ Implemented |
 | 6.6 | Retrieval A/B Measurement | ✅ Implemented |
+| 6.7 | Deep Retrieval Metrics (MRR + nDCG@3) | ✅ Implemented |
+| 6.8 | Benchmark Expansion (10 → 40 cases) | ✅ Implemented |
 | G4 | Baseline Regression Gate | 🔧 In Progress |
 | 7 | Cloud-ready FastAPI Serving | 📋 Planned |
 

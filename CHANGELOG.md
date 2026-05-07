@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-05-03 — Phase 6.8: Benchmark Expansion (10 → 40 cases)
+
+- Expanded `eval/eval_cases.json` from 10 to 40 labeled test cases; 37 carry `expected_sources` labels for retrieval grading
+- All 4 A/B modes re-evaluated against the expanded dataset
+- Updated `eval/eval_ab_results.json` with full 40-case A/B artifact
+- No changes to `app.py`, chain logic, retrieval, memory, or UI
+
+## 2026-05-03 — Phase 6.7: Deep Retrieval Metrics (MRR + nDCG@3)
+
+- Added `MRR` (Mean Reciprocal Rank) and `nDCG@3` (normalized Discounted Cumulative Gain at k=3) to `eval/run_eval.py` summary metrics
+- New metrics complement existing `retrieval_hit_rate` / `top_k_hit_rate` / `avg_source_overlap` with rank-aware evaluation
+- No changes to `app.py`, chain logic, retrieval, memory, or UI
+
 ## 2026-04-15 — Docs: Phase 6.6 evaluation limitations documented
 
 - `AI_ROADMAP.md` — added an explicit "Current limitations" subsection under Phase 6.6 covering dataset size, hand-labeled `expected_sources`, the regression-detection orientation of the harness, and the fact that mocked smoke runs do not produce citable accuracy numbers
