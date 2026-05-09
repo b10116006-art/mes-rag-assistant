@@ -38,10 +38,39 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 DATA_DIR = os.environ.get("RAG_DATA_DIR", "rag_data")
 LAST_CALL_TS = 0
 
+# Provider override for eval / scripted runs.
+# "openai"  -> only build the OpenAI chain; force run_*_with_mode to use it.
+# "gemini"  -> only build the Gemini chain; force run_*_with_mode to use it.
+# unset/""  -> preserve original auto behavior (build whichever has its API key).
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "").strip().lower()
+
 # Retrieval-mode flags — read at call time by rewrite_query() and _retrieve_and_rerank().
 # Default True = current production behavior. The eval harness toggles these to run A/B comparisons.
 USE_QUERY_REWRITE = True
 USE_RERANK = True
+USE_METADATA_FILTER = True
+
+# Phase G2: filename -> doc_type mapping. Filenames carry enough signal that
+# we don't need YAML frontmatter in rag_data/. Unmatched files default to
+# "unknown", which always passes the filter (safe for new files added later).
+DOC_TYPE_BY_FILENAME = {
+    "01_異常類型定義.md": "anomaly",
+    "02_SOP_異常處置流程.md": "sop",
+    "03_AI_Copilot判斷邏輯.md": "ai_logic",
+    "04_設備常見問題集.md": "equipment",
+}
+
+# Permissive multi-type mapping. Strict 1:1 starves retrieval — a case-based
+# query usually wants the anomaly definition, the SOP, and equipment context.
+# None means "no filter" (general queries pass through unfiltered).
+_DOC_TYPES_BY_QCLASS = {
+    "sop_doc":    ["sop", "ai_logic"],
+    "case-based": ["anomaly", "sop", "equipment"],
+    "general":    None,
+}
+
+def _doc_types_for_query(qclass: str):
+    return _DOC_TYPES_BY_QCLASS.get(qclass)
 
 class MESAnalysisOutput(BaseModel):
     anomaly_type: str = Field(description="異常類型代碼")
@@ -174,6 +203,7 @@ _last_retrieval_debug = {
     "retrieved_count": 0,
     "reranked_count": 0,
     "top_sources": [],
+    "doc_type_filter": None,
 }
 
 def rerank_docs(query: str, docs: list, top_n: int = 6) -> list:
@@ -209,6 +239,23 @@ def make_rerank_retriever(base_retriever, top_n: int = 6, top_sources_k: int = 3
     """
     def _retrieve_and_rerank(query):
         docs = base_retriever.invoke(query)
+        pre_filter_count = len(docs)
+
+        # Phase G2: optional metadata filter. Keeps only docs whose doc_type is
+        # in the allowed list for the query's class; unknown-tagged docs always
+        # pass (safe default). Falls back to the unfiltered set if too few
+        # candidates survive, so the filter never starves retrieval.
+        allowed = _doc_types_for_query(classify_query(query or "")) if USE_METADATA_FILTER else None
+        if allowed is not None:
+            filtered = [
+                d for d in docs
+                if (d.metadata or {}).get("doc_type") in allowed
+                or (d.metadata or {}).get("doc_type") == "unknown"
+            ]
+            if len(filtered) >= 2:
+                docs = filtered
+                print(f"doc_type_filter applied: {allowed}")
+
         reranked = rerank_docs(query, docs, top_n=top_n) if USE_RERANK else list(docs)[:top_n]
         seen = []
         for d in reranked:
@@ -217,9 +264,10 @@ def make_rerank_retriever(base_retriever, top_n: int = 6, top_sources_k: int = 3
                 seen.append(name)
             if len(seen) >= top_sources_k:
                 break
-        _last_retrieval_debug["retrieved_count"] = len(docs)
+        _last_retrieval_debug["retrieved_count"] = pre_filter_count
         _last_retrieval_debug["reranked_count"] = len(reranked)
         _last_retrieval_debug["top_sources"] = seen
+        _last_retrieval_debug["doc_type_filter"] = allowed
         return reranked
     return RunnableLambda(_retrieve_and_rerank)
 
@@ -250,6 +298,12 @@ def build_rag_system():
 
     if not documents:
         raise RuntimeError("找不到知識庫文件。請建立 rag_data/ 並放入 .md，或設定 RAG_DATA_DIR。")
+
+    # Phase G2: stamp doc_type onto each loaded Document so all chunks inherit
+    # it via the splitter. Filename-derived; unmatched files keep "unknown".
+    for d in documents:
+        src = (d.metadata.get("source") or "").replace("\\", "/").split("/")[-1]
+        d.metadata["doc_type"] = DOC_TYPE_BY_FILENAME.get(src, "unknown")
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=600,
@@ -299,7 +353,7 @@ etch_rate_drift / cd_shift / void_detected / general"""),
         ("human", "異常描述：{question}")
     ])
 
-    if GEMINI_API_KEY:
+    if GEMINI_API_KEY and LLM_PROVIDER != "openai":
         gemini_llm = make_gemini_llm()
         gemini_retriever = build_multi_query_retriever(gemini_llm)
         chat_chains["gemini"] = (
@@ -315,7 +369,7 @@ etch_rate_drift / cd_shift / void_detected / general"""),
             | gemini_structured
         )
 
-    if OPENAI_API_KEY:
+    if OPENAI_API_KEY and LLM_PROVIDER != "gemini":
         openai_llm = make_openai_llm()
         openai_retriever = build_multi_query_retriever(openai_llm)
         chat_chains["openai"] = (
@@ -572,6 +626,8 @@ def compute_trust_score(matched_case_ids, route_used, confidence, evidence_sourc
     }
 
 def run_chat_with_mode(message, mode="auto"):
+    if LLM_PROVIDER in ("openai", "gemini"):
+        mode = LLM_PROVIDER
     if not message.strip():
         return "請輸入問題"
     if len(message) > 300:
@@ -650,6 +706,8 @@ def run_chat_with_mode(message, mode="auto"):
     return "❌ 無可用 provider"
 
 def run_analysis_with_mode(description, mode="auto"):
+    if LLM_PROVIDER in ("openai", "gemini"):
+        mode = LLM_PROVIDER
     if not description.strip():
         return "請描述異常情況"
     if len(description) > 500:

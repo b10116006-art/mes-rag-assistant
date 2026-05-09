@@ -3,20 +3,20 @@
     "total_cases": 40,
     "llm_responses_parsed": 40,
     "call_success_count": 40,
-    "anomaly_type_accuracy": 0.75,
+    "anomaly_type_accuracy": 0.725,
     "memory_used_accuracy": 0.65,
     "route_used_accuracy": 0.55,
     "retrieval_graded_cases": 35,
-    "retrieval_hit_rate": 0.8,
-    "top_k_hit_rate": 0.8,
-    "avg_source_overlap": 0.943,
-    "avg_retrieved_count": 7.45,
-    "avg_reranked_count": 5.88,
-    "avg_retrieval_recall": 0.771,
-    "avg_mrr": 0.786,
-    "avg_ndcg_at_k": 0.767,
+    "retrieval_hit_rate": 0.857,
+    "top_k_hit_rate": 0.857,
+    "avg_source_overlap": 0.914,
+    "avg_retrieved_count": 8.05,
+    "avg_reranked_count": 5.9,
+    "avg_retrieval_recall": 0.786,
+    "avg_mrr": 0.771,
+    "avg_ndcg_at_k": 0.739,
     "ndcg_k": 3,
-    "avg_decision_match": 0.625
+    "avg_decision_match": 0.613
   },
   "results": [
     {
@@ -84,7 +84,7 @@
       "mrr": 1.0,
       "ndcg_at_k": 1.0,
       "ndcg_k": 3,
-      "decision_match_score": 1.0
+      "decision_match_score": 0.5
     },
     {
       "mode": "full",
@@ -140,16 +140,17 @@
         "01_異常類型定義.md"
       ],
       "top_sources": [
-        "04_設備常見問題集.md"
+        "04_設備常見問題集.md",
+        "01_異常類型定義.md"
       ],
-      "retrieved_count": 5,
-      "reranked_count": 5,
-      "retrieval_hit": false,
-      "top_k_hit": false,
-      "source_overlap": 0,
-      "retrieval_recall": 0.0,
-      "mrr": 0.0,
-      "ndcg_at_k": 0.0,
+      "retrieved_count": 8,
+      "reranked_count": 6,
+      "retrieval_hit": true,
+      "top_k_hit": true,
+      "source_overlap": 1,
+      "retrieval_recall": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.631,
       "ndcg_k": 3,
       "decision_match_score": 1.0
     },
@@ -208,8 +209,8 @@
       "top_sources": [
         "04_設備常見問題集.md"
       ],
-      "retrieved_count": 5,
-      "reranked_count": 5,
+      "retrieved_count": 6,
+      "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
       "source_overlap": 1,
@@ -274,19 +275,18 @@
         "01_異常類型定義.md"
       ],
       "top_sources": [
-        "01_異常類型定義.md",
-        "04_設備常見問題集.md"
+        "01_異常類型定義.md"
       ],
       "retrieved_count": 7,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
-      "source_overlap": 2,
-      "retrieval_recall": 1.0,
+      "source_overlap": 1,
+      "retrieval_recall": 0.5,
       "mrr": 1.0,
-      "ndcg_at_k": 1.0,
+      "ndcg_at_k": 0.613,
       "ndcg_k": 3,
-      "decision_match_score": 0.0
+      "decision_match_score": 0.25
     },
     {
       "mode": "full",
@@ -309,19 +309,18 @@
         "04_設備常見問題集.md"
       ],
       "top_sources": [
-        "01_異常類型定義.md",
         "04_設備常見問題集.md"
       ],
       "retrieved_count": 9,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
-      "source_overlap": 2,
-      "retrieval_recall": 1.0,
+      "source_overlap": 1,
+      "retrieval_recall": 0.5,
       "mrr": 1.0,
-      "ndcg_at_k": 1.0,
+      "ndcg_at_k": 0.613,
       "ndcg_k": 3,
-      "decision_match_score": 0.5
+      "decision_match_score": 0.75
     },
     {
       "mode": "full",
@@ -345,8 +344,8 @@
       "top_sources": [
         "01_異常類型定義.md"
       ],
-      "retrieved_count": 5,
-      "reranked_count": 5,
+      "retrieved_count": 6,
+      "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
       "source_overlap": 1,
@@ -377,19 +376,18 @@
         "04_設備常見問題集.md"
       ],
       "top_sources": [
-        "01_異常類型定義.md",
-        "04_設備常見問題集.md"
+        "01_異常類型定義.md"
       ],
-      "retrieved_count": 8,
+      "retrieved_count": 7,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
-      "source_overlap": 2,
-      "retrieval_recall": 1.0,
+      "source_overlap": 1,
+      "retrieval_recall": 0.5,
       "mrr": 1.0,
-      "ndcg_at_k": 1.0,
+      "ndcg_at_k": 0.613,
       "ndcg_k": 3,
-      "decision_match_score": 0.25
+      "decision_match_score": 0.5
     },
     {
       "mode": "full",
@@ -413,7 +411,7 @@
       "top_sources": [
         "01_異常類型定義.md"
       ],
-      "retrieved_count": 6,
+      "retrieved_count": 7,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -446,7 +444,7 @@
       "top_sources": [
         "02_SOP_異常處置流程.md"
       ],
-      "retrieved_count": 8,
+      "retrieved_count": 7,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -477,6 +475,7 @@
         "02_SOP_異常處置流程.md"
       ],
       "top_sources": [
+        "04_設備常見問題集.md",
         "02_SOP_異常處置流程.md"
       ],
       "retrieved_count": 9,
@@ -485,8 +484,8 @@
       "top_k_hit": true,
       "source_overlap": 1,
       "retrieval_recall": 1.0,
-      "mrr": 1.0,
-      "ndcg_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.631,
       "ndcg_k": 3,
       "decision_match_score": 0.75
     },
@@ -512,8 +511,8 @@
       "top_sources": [
         "02_SOP_異常處置流程.md"
       ],
-      "retrieved_count": 7,
-      "reranked_count": 6,
+      "retrieved_count": 9,
+      "reranked_count": 2,
       "retrieval_hit": true,
       "top_k_hit": true,
       "source_overlap": 1,
@@ -543,17 +542,17 @@
         "03_AI_Copilot判斷邏輯.md"
       ],
       "top_sources": [
-        "03_AI_Copilot判斷邏輯.md",
-        "04_設備常見問題集.md"
+        "04_設備常見問題集.md",
+        "03_AI_Copilot判斷邏輯.md"
       ],
-      "retrieved_count": 7,
+      "retrieved_count": 8,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
       "source_overlap": 1,
       "retrieval_recall": 1.0,
-      "mrr": 1.0,
-      "ndcg_at_k": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.631,
       "ndcg_k": 3,
       "decision_match_score": 1.0
     },
@@ -579,8 +578,8 @@
       "top_sources": [
         "03_AI_Copilot判斷邏輯.md"
       ],
-      "retrieved_count": 5,
-      "reranked_count": 5,
+      "retrieved_count": 9,
+      "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
       "source_overlap": 1,
@@ -598,7 +597,7 @@
       "query_class": "case-based",
       "decision_reason": "no memory hit, fallback to LLM+RAG",
       "expected_anomaly_type": "thickness_ood",
-      "predicted_anomaly_type": "thickness_ood",
+      "predicted_anomaly_type": "etch_rate_drift",
       "expected_memory_used": false,
       "actual_memory_used": false,
       "expected_route_used": "llm",
@@ -610,10 +609,9 @@
         "04_設備常見問題集.md"
       ],
       "top_sources": [
-        "04_設備常見問題集.md",
-        "01_異常類型定義.md"
+        "04_設備常見問題集.md"
       ],
-      "retrieved_count": 8,
+      "retrieved_count": 9,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -622,7 +620,7 @@
       "mrr": 1.0,
       "ndcg_at_k": 1.0,
       "ndcg_k": 3,
-      "decision_match_score": 0.75
+      "decision_match_score": 0.0
     },
     {
       "mode": "full",
@@ -645,16 +643,16 @@
       ],
       "top_sources": [
         "02_SOP_異常處置流程.md",
-        "01_異常類型定義.md"
+        "04_設備常見問題集.md"
       ],
       "retrieved_count": 9,
       "reranked_count": 6,
-      "retrieval_hit": false,
-      "top_k_hit": false,
-      "source_overlap": 0,
-      "retrieval_recall": 0.0,
-      "mrr": 0.0,
-      "ndcg_at_k": 0.0,
+      "retrieval_hit": true,
+      "top_k_hit": true,
+      "source_overlap": 1,
+      "retrieval_recall": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.631,
       "ndcg_k": 3,
       "decision_match_score": 0.75
     },
@@ -679,7 +677,7 @@
         "04_設備常見問題集.md",
         "01_異常類型定義.md"
       ],
-      "retrieved_count": 6,
+      "retrieved_count": 8,
       "reranked_count": 6,
       "retrieval_hit": null,
       "top_k_hit": null,
@@ -708,10 +706,9 @@
       "call_success": true,
       "expected_sources": [],
       "top_sources": [
-        "01_異常類型定義.md",
-        "03_AI_Copilot判斷邏輯.md"
+        "01_異常類型定義.md"
       ],
-      "retrieved_count": 8,
+      "retrieved_count": 9,
       "reranked_count": 6,
       "retrieval_hit": null,
       "top_k_hit": null,
@@ -775,7 +772,7 @@
       "top_sources": [
         "01_異常類型定義.md"
       ],
-      "retrieved_count": 6,
+      "retrieved_count": 7,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -809,7 +806,7 @@
       "top_sources": [
         "01_異常類型定義.md"
       ],
-      "retrieved_count": 8,
+      "retrieved_count": 7,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -877,7 +874,7 @@
       "top_sources": [
         "04_設備常見問題集.md"
       ],
-      "retrieved_count": 6,
+      "retrieved_count": 9,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -909,10 +906,10 @@
         "01_異常類型定義.md"
       ],
       "top_sources": [
-        "01_異常類型定義.md",
-        "04_設備常見問題集.md"
+        "04_設備常見問題集.md",
+        "01_異常類型定義.md"
       ],
-      "retrieved_count": 8,
+      "retrieved_count": 9,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -946,7 +943,7 @@
         "04_設備常見問題集.md",
         "01_異常類型定義.md"
       ],
-      "retrieved_count": 9,
+      "retrieved_count": 8,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -955,7 +952,7 @@
       "mrr": 1.0,
       "ndcg_at_k": 1.0,
       "ndcg_k": 3,
-      "decision_match_score": 1.0
+      "decision_match_score": 0.75
     },
     {
       "mode": "full",
@@ -980,7 +977,7 @@
         "04_設備常見問題集.md",
         "02_SOP_異常處置流程.md"
       ],
-      "retrieved_count": 7,
+      "retrieved_count": 9,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -989,7 +986,7 @@
       "mrr": 0.5,
       "ndcg_at_k": 0.631,
       "ndcg_k": 3,
-      "decision_match_score": 0.5
+      "decision_match_score": 0.75
     },
     {
       "mode": "full",
@@ -1044,10 +1041,9 @@
         "02_SOP_異常處置流程.md"
       ],
       "top_sources": [
-        "01_異常類型定義.md",
-        "04_設備常見問題集.md"
+        "01_異常類型定義.md"
       ],
-      "retrieved_count": 7,
+      "retrieved_count": 9,
       "reranked_count": 6,
       "retrieval_hit": false,
       "top_k_hit": false,
@@ -1113,8 +1109,8 @@
       "top_sources": [
         "04_設備常見問題集.md"
       ],
-      "retrieved_count": 5,
-      "reranked_count": 5,
+      "retrieved_count": 7,
+      "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
       "source_overlap": 1,
@@ -1144,10 +1140,9 @@
         "04_設備常見問題集.md"
       ],
       "top_sources": [
-        "04_設備常見問題集.md",
-        "01_異常類型定義.md"
+        "04_設備常見問題集.md"
       ],
-      "retrieved_count": 8,
+      "retrieved_count": 6,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -1178,16 +1173,16 @@
         "04_設備常見問題集.md"
       ],
       "top_sources": [
-        "04_設備常見問題集.md"
+        "01_異常類型定義.md"
       ],
-      "retrieved_count": 9,
+      "retrieved_count": 8,
       "reranked_count": 6,
-      "retrieval_hit": true,
-      "top_k_hit": true,
-      "source_overlap": 1,
-      "retrieval_recall": 1.0,
-      "mrr": 1.0,
-      "ndcg_at_k": 1.0,
+      "retrieval_hit": false,
+      "top_k_hit": false,
+      "source_overlap": 0,
+      "retrieval_recall": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_k": 0.0,
       "ndcg_k": 3,
       "decision_match_score": 0.0
     },
@@ -1214,7 +1209,7 @@
         "04_設備常見問題集.md",
         "02_SOP_異常處置流程.md"
       ],
-      "retrieved_count": 7,
+      "retrieved_count": 9,
       "reranked_count": 6,
       "retrieval_hit": true,
       "top_k_hit": true,
@@ -1245,16 +1240,17 @@
         "03_AI_Copilot判斷邏輯.md"
       ],
       "top_sources": [
-        "01_異常類型定義.md"
+        "01_異常類型定義.md",
+        "03_AI_Copilot判斷邏輯.md"
       ],
-      "retrieved_count": 8,
+      "retrieved_count": 9,
       "reranked_count": 6,
-      "retrieval_hit": false,
-      "top_k_hit": false,
-      "source_overlap": 0,
-      "retrieval_recall": 0.0,
-      "mrr": 0.0,
-      "ndcg_at_k": 0.0,
+      "retrieval_hit": true,
+      "top_k_hit": true,
+      "source_overlap": 1,
+      "retrieval_recall": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_k": 0.631,
       "ndcg_k": 3,
       "decision_match_score": 0.0
     },
@@ -1313,7 +1309,7 @@
         "04_設備常見問題集.md",
         "01_異常類型定義.md"
       ],
-      "retrieved_count": 7,
+      "retrieved_count": 8,
       "reranked_count": 6,
       "retrieval_hit": null,
       "top_k_hit": null,
@@ -1345,7 +1341,7 @@
         "02_SOP_異常處置流程.md",
         "04_設備常見問題集.md"
       ],
-      "retrieved_count": 9,
+      "retrieved_count": 8,
       "reranked_count": 6,
       "retrieval_hit": null,
       "top_k_hit": null,
