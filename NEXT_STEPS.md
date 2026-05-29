@@ -1,5 +1,22 @@
 # Next Steps
 
+## Active focus (post G2 merge, Phase 7 evaluated)
+
+Phase 7 strict evidence-bound reasoning prompt was tested on branch `phase7-prompt-hardening`. G4 gate PASS, but `decision_match` 0.656 → 0.646 (−0.010). Retrieval metrics flat. **Not a production improvement.** See `AI_ROADMAP.md` → "Decision-Layer Track (Phase 7 / Phase 7B)" and `docs/architecture/ADR_007_action_canonicalization.md`.
+
+### Immediate actions
+1. **Do not merge `phase7-prompt-hardening` as-is.** Strict prompt regressed `decision_match` and is HOLD. The branch is **not** a production candidate.
+2. **Preserve branch `phase7-prompt-hardening`** as an experiment / audit trail. Do not delete locally or on remote.
+3. **Start documentation + design for Phase 7B — Action Canonicalization Layer.** Methodology change inside the scorer, not a retrieval / prompt / schema change. Design lives in `docs/architecture/ADR_007_action_canonicalization.md`.
+4. **Only after this doc sync lands**, decide whether to create a new implementation branch (recommended name: `feat/phase7b-action-canonicalization`, branched from `main`).
+
+### Why this order
+- The held experiment is a real result worth documenting; deleting the branch or rewriting history would lose the evidence that prompt strictness is the wrong lever.
+- Phase 7B is an eval-methodology change — designing the canonical vocabulary on paper is cheap and reviewable before any code runs.
+- Branching for 7B from `main` (not from `phase7-prompt-hardening`) keeps 7B clean of the held strict-prompt code.
+
+---
+
 ## Current execution sequence (post Phase 6.6 closeout)
 
 Sequenced by **dependency**, not by recency. Per-item detail and acceptance criteria live in `AI_ROADMAP.md` ("Course-driven gap items", "Enterprise readiness track", "Near-term engineering backlog").

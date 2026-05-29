@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-05-11 — Docs: Phase 7 strict prompt hardening evaluated, pivot to Phase 7B (action canonicalization)
+
+- Phase 7 strict evidence-bound reasoning prompt experiment evaluated on branch `phase7-prompt-hardening` against reasoning OFF baseline (40-case full-mode, OpenAI provider)
+- Retrieval metrics remained flat: `retrieval_hit_rate` 0.829 → 0.829, `top_k_hit_rate` 0.829 → 0.829, `avg_mrr` 0.800 → 0.800, `avg_ndcg_at_k` 0.763 → 0.763
+- `avg_decision_match` 0.656 → 0.646 (Δ −0.010); G4 baseline regression gate PASS (within ±0.020 threshold) but no production lift
+- **Interpretation:** retrieval is no longer the bottleneck, and prompt strictness is the wrong lever — strict R3 ("omit ungrounded actions") over-pruned action generation, and verbatim-SOP wording sometimes increased lexical drift vs benchmark `expected_actions` labels
+- **Decision:** HOLD the strict prompt change; do not merge `phase7-prompt-hardening` as a production improvement; preserve the branch as audit trail
+- **Pivot:** Phase 7B — Action Canonicalization Layer. Normalize semantically equivalent action phrases inside the scorer before token-overlap matching. Design captured in `docs/architecture/ADR_007_action_canonicalization.md`
+- `AI_ROADMAP.md` — added "Decision-Layer Track (Phase 7 / Phase 7B)" section; Phase 7 marked 🧪 Experimental HOLD in the Status Index; Phase 7B added to 🔜 Near-term; one-line clarifier on the existing "Phase 7 — Cloud-ready FastAPI serving layer" noting the naming collision
+- `NEXT_STEPS.md` — added "Active focus (post G2 merge, Phase 7 evaluated)" section with the four immediate actions
+- No changes to `app.py`, eval scripts, eval cases, eval result artifacts, retrieval logic, scoring logic, or any runtime code in this entry — documentation only
+
 ## 2026-05-03 — Phase 6.8: Benchmark Expansion (10 → 40 cases)
 
 - Expanded `eval/eval_cases.json` from 10 to 40 labeled test cases; 37 carry `expected_sources` labels for retrieval grading
