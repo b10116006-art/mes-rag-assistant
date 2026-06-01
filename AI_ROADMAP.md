@@ -27,16 +27,23 @@ This index is the single source of truth for phase state. Individual phase secti
 | 6.5 | Retrieval Evaluation Metrics | `expected_sources` labels + `retrieval_hit_rate` / `top_k_hit_rate` / `avg_source_overlap` in eval summary |
 | 6.6 | Retrieval A/B Measurement | `eval/eval_ab_results.json` — 4-mode (baseline / rewrite_only / rerank_only / full) × 40 cases |
 
+### 🧪 Experimental — held (not merged)
+
+| Phase | Name | Status | Branch / artifact |
+|---|---|---|---|
+| 7 (Decision) | Evidence-bound Decision Reasoning prompt | HOLD — strict variant regressed `decision_match` 0.656 → 0.646; retrieval flat | `phase7-prompt-hardening` (preserved as audit trail). See "Decision-Layer Track" section. |
+
 ### 🔜 Near-term next work (planned)
 
 - **Phase 6.6** — A/B measurement of rewrite and rerank against Phase 6.5 metrics (✅ Completed — see Implemented table; A/B artifact committed)
 - **Course-driven gap items** (G1–G4) — see "Course-driven gap items" section below; scheduled by **dependency**, not by recency
 - **Enterprise readiness track** (ENT-1 → ENT-3) — see "Enterprise readiness track" section below
+- **Phase 7B — Action Canonicalization Layer** — methodology improvement to normalize semantically-equivalent action phrases inside the scorer, before token-overlap matching. Design captured in `docs/architecture/ADR_007_action_canonicalization.md`. See "Decision-Layer Track" section.
 - **Near-term engineering backlog** (see dedicated section) — chunking strategy, embedding selection, cross-encoder rerank, larger benchmark, multimodal RAG
 
 ### 🗺 Long-term roadmap
 
-- **Phase 7** — Cloud-ready FastAPI serving layer
+- **Phase 7** — Cloud-ready FastAPI serving layer  _(naming note: distinct from "Phase 7 (Decision)" in the Decision-Layer Track — different scope, same number; disambiguate by renumbering when convenient)_
 - **Phase 8** — Document normalization + ingestion pipeline
 - **Phase 9** — Reliability / provider routing with circuit breaker
 - Multimodal document understanding (layout-aware PDF, image+OCR)
@@ -409,6 +416,66 @@ Items listed in execution (dependency) order: ENT-1 → Phase 7 → ENT-2 → EN
 **Dependencies:** **Phase 7**.
 
 **Affects:** Future `api/main.py`.
+
+---
+
+## Decision-Layer Track (Phase 7 / Phase 7B)
+
+> **Naming note.** This section's "Phase 7" is the Decision-Layer experiment proposed in the architect-review thread (Option A: Evidence-bound Decision Reasoning). The long-term roadmap above also lists a "Phase 7 — Cloud-ready FastAPI serving layer". The two share the number historically; renumber one when convenient. They are independent in scope.
+
+### Phase 7 (Decision Reasoning) — 🧪 Experimental HOLD
+
+**Status:** HOLD — not merged to `main`. Branch `phase7-prompt-hardening` preserved as audit trail.
+
+**Hypothesis:** lift `avg_decision_match` by adding an additive `evidence_to_action` schema field that forces the LLM to cite which retrieved chunk justifies each `recommended_action`. Citation should drag predicted action wording toward verbatim SOP language, raising `action_score` (the dominant component of `decision_match`).
+
+**Experiment:** two prompt variants tested behind `USE_DECISION_REASONING` flag (default `False`):
+
+- **Gentle directive** — ask for grounding; allow `supporting_source:"none"` stubs. Result: `decision_match` 0.656 → 0.660 (+0.004, indistinguishable from noise).
+- **Strict directive (this branch)** — R1–R4 hard rules (every action grounded, verbatim SOP wording preferred, ungrounded actions omitted, source excerpt quoted) plus BAD/GOOD few-shot. Result: `decision_match` 0.656 → **0.646 (−0.010)**.
+
+**Retrieval guardrails (Phase 7 must not move these):**
+
+| metric | reasoning OFF | reasoning ON (strict) | Δ |
+|---|---|---|---|
+| `retrieval_hit_rate` | 0.829 | 0.829 | flat ✅ |
+| `top_k_hit_rate` | 0.829 | 0.829 | flat ✅ |
+| `avg_mrr` | 0.800 | 0.800 | flat ✅ |
+| `avg_ndcg_at_k` | 0.763 | 0.763 | flat ✅ |
+| `avg_decision_match` | **0.656** | **0.646** | **−0.010** |
+
+**G4 baseline regression gate:** PASS (delta within ±0.020 threshold) — but the strict prompt is **not a production improvement** and should not be merged on that basis alone.
+
+**Interpretation:** retrieval is no longer the bottleneck. Prompt strictness is the wrong lever — strict R3 ("omit ungrounded actions") over-pruned action generation, and forcing verbatim wording from `rag_data/` chunks sometimes *increased* lexical drift relative to the `expected_actions` labels (which are themselves paraphrased SOP). The real bottleneck is lexical / semantic mismatch between LLM-natural action phrases and benchmark labels, not reasoning quality or grounding discipline.
+
+**Decision:** HOLD. Do not merge the strict prompt change. Keep `phase7-prompt-hardening` branch as an audit trail. The `evidence_to_action` schema field and gentle directive (already on main behind the default-False flag) remain as additive infrastructure with no production behavior change. Pivot to **Phase 7B**.
+
+### Phase 7B (Action Canonicalization Layer) — 🗺 Planned (design phase)
+
+**Status:** Planned. Design captured in `docs/architecture/ADR_007_action_canonicalization.md`. No implementation branch yet — gated on doc sync first.
+
+**Hypothesis:** the residual `decision_match` gap is **lexical equivalence the scorer cannot see**, not reasoning quality. Phrases like `"停止機台"`, `"Hold 設備"`, `"暫停 production"`, `"tool hold"`, and `"設備暫停"` are the same SOP step but score differently under `_action_match_score`'s token-overlap rule. Normalizing both predicted and expected actions to a canonical vocabulary **before** scoring should lift `action_score` without touching the LLM or retrieval stack.
+
+**Scope (strict eval-side change, not runtime):**
+
+- Build a small canonical action vocabulary as a reviewable file (e.g. `eval/action_vocabulary.json`).
+- Build a normalizer (heuristic / keyword / regex first pass) that maps common surface variants → canonical form.
+- Apply normalizer inside `_action_match_score` to both sides before token-overlap.
+- A/B the scorer behind a flag: raw vs canonicalized, on the existing 40-case held-out artifact (no re-eval of the LLM stack needed for the first pass).
+
+**Boundary — what 7B is explicitly NOT:**
+
+- NOT a retrieval / rerank / query-rewrite / routing change.
+- NOT a prompt change.
+- NOT a schema change to `MESAnalysisOutput`.
+- NOT a change to `eval_cases.json` content (`expected_actions` labels stand verbatim).
+- NOT a change to `app.py` or chain construction.
+
+**Dependencies:** None. Can start immediately as a documentation + methodology change.
+
+**Acceptance:** `action_score` lift ≥ +0.020 on the OFF artifact under canonicalized scoring; raw scorer still works (flag-gated); G4 gate continues to PASS.
+
+**Failure mode:** if canonicalized `action_score` lifts < +0.020, the bottleneck is not lexical mismatch — escalate to a different layer (LLM-as-judge scoring, embedding-based action matching, or `expected_actions` label review).
 
 ---
 
