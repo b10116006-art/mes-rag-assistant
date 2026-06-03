@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "notes": "Phase 7B Action Canonicalization Layer — canonical action vocabulary. Eval-side only. Each entry collapses semantically equivalent surface variants (Chinese/English, with spacing/hyphenation/punctuation drift) to a single snake_case canonical token. Conservative first pass: one canonical form per SOP step. New entries should only be added after observing real variant collisions in eval output. See docs/architecture/ADR_007_action_canonicalization.md.",
+  "aliases": [
+    {
+      "canonical": "hold_lot",
+      "variants": ["hold lot", "hold 批", "hold 批號", "暫停批號", "暫停 lot", "保留批號"]
+    },
+    {
+      "canonical": "hold_equipment",
+      "variants": ["hold 設備", "hold equipment", "hold tool", "tool hold", "停止機台", "停機", "暫停設備", "設備暫停", "暫停 production"]
+    },
+    {
+      "canonical": "notify_process_engineer",
+      "variants": ["通知 process engineer", "通知 pe", "聯絡 process engineer", "通知工程師", "聯絡 pe", "process engineer 確認"]
+    },
+    {
+      "canonical": "notify_on_call_engineer",
+      "variants": ["通知 on-call engineer", "通知 on-call", "通知 oncall", "on-call engineer 接手", "call duty engineer", "on call engineer"]
+    },
+    {
+      "canonical": "nf3_chamber_clean",
+      "variants": ["執行 nf3 腔體清潔", "執行 nf3 清潔", "nf3 腔體清潔", "nf3 chamber clean", "nf3 clean", "nf3 清機"]
+    },
+    {
+      "canonical": "check_shower_head",
+      "variants": ["檢查 shower head 孔洞", "檢查 shower head", "檢查 showerhead", "shower head 檢查", "showerhead 檢查"]
+    },
+    {
+      "canonical": "check_mfc",
+      "variants": ["確認 mfc 是否異常", "檢查 mfc", "mfc 檢查", "mfc 確認", "確認 mfc"]
+    },
+    {
+      "canonical": "check_rf_power",
+      "variants": ["確認 rf power 輸出", "確認 rf log", "比較 rf 設定與實際", "檢查 rf power", "rf power 確認"]
+    },
+    {
+      "canonical": "sem_cross_section",
+      "variants": ["sem 截面確認", "sem cross-section", "sem 切片", "sem 截面分析", "sem 截面"]
+    },
+    {
+      "canonical": "pm_clean",
+      "variants": ["pm 清機", "preventive maintenance 清機", "預防保養 清機"]
+    },
+    {
+      "canonical": "three_sigma_ooc",
+      "variants": ["3-sigma 超標", "3-sigma ooc", "3 sigma ooc", "3sigma ooc", "3σ out of spec", "3σ 超標"]
+    },
+    {
+      "canonical": "leak_check",
+      "variants": ["執行 leak check", "leak check", "氣密測試", "leak test"]
+    },
+    {
+      "canonical": "check_foup",
+      "variants": ["檢查 foup", "foup 檢查", "確認 foup", "foup 清潔確認"]
+    }
+  ]
+}
