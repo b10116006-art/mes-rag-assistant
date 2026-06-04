@@ -55,6 +55,10 @@ from app import (  # noqa: E402
     route_query,
 )
 
+# Phase 7B: eval-side action canonicalization (no runtime impact).
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # ensure eval/ importable
+from action_canonicalization import canonicalize_actions  # noqa: E402
+
 CASES_PATH = Path(__file__).parent / "eval_cases.json"
 RESULTS_PATH = Path(__file__).parent / "eval_results.json"
 AB_RESULTS_PATH = Path(__file__).parent / "eval_ab_results.json"
@@ -91,6 +95,10 @@ def _action_match_score(expected_actions, predicted_actions):
         return None
     if not predicted_actions:
         return 0.0
+    # Phase 7B: canonicalize both sides so SOP-equivalent paraphrases collapse
+    # to the same canonical tokens before token-overlap scoring (eval-side only).
+    expected_actions = canonicalize_actions(expected_actions)
+    predicted_actions = canonicalize_actions(predicted_actions)
     pred_pool = " ".join(predicted_actions).lower()
     matched = 0
     for ea in expected_actions:
