@@ -39,6 +39,7 @@ This index is the single source of truth for phase state. Individual phase secti
 - **Course-driven gap items** (G1–G4) — see "Course-driven gap items" section below; scheduled by **dependency**, not by recency
 - **Enterprise readiness track** (ENT-1 → ENT-3) — see "Enterprise readiness track" section below
 - **Phase 7B — Action Canonicalization Layer** — methodology improvement to normalize semantically-equivalent action phrases inside the scorer, before token-overlap matching. Design captured in `docs/architecture/ADR_007_action_canonicalization.md`. See "Decision-Layer Track" section.
+- **Resume-ready Polish Track (Portfolio Packaging)** — packaging-only items (LICENSE, baseline snapshot, A/B chart, README polish, diagram refresh) for outreach. **Not a research phase**; does not replace G2 / G4 / Phase 7B / FastAPI work. See "Resume-ready Polish Track (Portfolio Packaging)" section.
 - **Near-term engineering backlog** (see dedicated section) — chunking strategy, embedding selection, cross-encoder rerank, larger benchmark, multimodal RAG
 
 ### 🗺 Long-term roadmap
@@ -476,6 +477,29 @@ Items listed in execution (dependency) order: ENT-1 → Phase 7 → ENT-2 → EN
 **Acceptance:** `action_score` lift ≥ +0.020 on the OFF artifact under canonicalized scoring; raw scorer still works (flag-gated); G4 gate continues to PASS.
 
 **Failure mode:** if canonicalized `action_score` lifts < +0.020, the bottleneck is not lexical mismatch — escalate to a different layer (LLM-as-judge scoring, embedding-based action matching, or `expected_actions` label review).
+
+---
+
+## Resume-ready Polish Track (Portfolio Packaging)
+
+**Status:** 🗺 Planned (short-term polish). **Not a research phase.**
+
+This track collects low-effort packaging work whose only purpose is to make the system already on `main` legible to a non-runtime audience — cold email, résumé, and professor / lab outreach. It produces **no new capability**: every item is presentation, reproducibility, or licensing around work that already exists.
+
+**Planned items (each ships as its own separate follow-up PR):**
+
+1. **LICENSE (MIT)** — add a top-level MIT license file so the repo is safe to share publicly.
+2. **`baseline_metrics.json`** — commit the G4 baseline as a standalone, human-readable reproducibility artifact for portfolio review. Supports the existing G4 gate; does **not** change G4 logic or thresholds.
+3. **`docs/images/ab_results.png`** — render the committed `eval/eval_ab_results.json` A/B numbers as a static chart for README / outreach use.
+4. **README metrics table / portfolio framing** — surface the existing eval metrics in a readable table and tighten the top-of-README framing for a reviewer skimming in under a minute.
+5. **Architecture diagram refresh** — only if low-effort; refresh the existing diagram to match current phases. Skipped if it would require non-trivial work.
+
+**Boundaries — what this track is NOT:**
+
+- **Not a new research phase.** No new retrieval, reasoning, scoring, or serving capability.
+- **Does not replace or reprioritize** the G2 metadata/semantic filter, G4 gate hardening, Phase 7B action canonicalization, or the Phase 7 FastAPI serving work. Those remain the engineering sequence; this track runs alongside as packaging only.
+- **Purpose is outreach packaging** — cold email, résumé, professor / lab outreach — not production readiness.
+- **Implementation is deferred to separate follow-up PRs**, one per item, none of which touch runtime code, `MESAnalysisOutput` schema, routing, or eval scoring logic.
 
 ---
 
