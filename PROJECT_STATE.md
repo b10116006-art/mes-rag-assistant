@@ -19,6 +19,8 @@
 
 **Enterprise readiness track (planned):** ENT-1 (Docker), ENT-2 (API auth + rate limiting), ENT-3 (`/health` + `/metrics`). Per-item detail in `AI_ROADMAP.md` → "Enterprise readiness track".
 
+**Resume-ready Polish Track (Portfolio Packaging) (planned):** Packaging-only items (LICENSE MIT, baseline metrics snapshot, A/B chart, README polish, diagram refresh) for cold email / résumé / outreach. **Not a research phase**; does not replace G2 / G4 / Phase 7B / FastAPI work. Detail in `AI_ROADMAP.md` → "Resume-ready Polish Track (Portfolio Packaging)".
+
 ## What is validated
 
 - Mode switching actually changes the code path (rewrite and rerank divergence verified)

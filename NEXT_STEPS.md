@@ -52,6 +52,21 @@ Sequenced by **dependency**, not by recency. Per-item detail and acceptance crit
 
 ---
 
+## Resume-ready Polish Track (Portfolio Packaging)
+
+Parallel **packaging** track — not part of the dependency-ordered engineering sequence above and **not a new research phase**. Purpose is cold email / résumé / professor outreach packaging of work already on `main`. Full item list and boundaries live in `AI_ROADMAP.md` → "Resume-ready Polish Track (Portfolio Packaging)".
+
+Planned short-term items (each a separate follow-up PR; none touch runtime / schema / routing / eval scoring logic):
+1. LICENSE (MIT)
+2. `baseline_metrics.json` — G4 / portfolio reproducibility snapshot (supports G4, does not change it)
+3. `docs/images/ab_results.png` — static A/B chart from `eval/eval_ab_results.json`
+4. README metrics table / portfolio framing polish
+5. Architecture diagram refresh (only if low-effort)
+
+Does **not** replace or reprioritize G2, G4 hardening, Phase 7B, or FastAPI work.
+
+---
+
 ## Current focus (post Phase 6.6-prep) — historical reference
 
 Preserved verbatim from before Phase 6.6 closeout. Items already shipped are annotated; remaining items are subsumed by the IMMEDIATE / SHORT-TERM blocks above.
