@@ -136,7 +136,22 @@ python run_eval.py
 
 Results are committed in `eval/eval_ab_results.json` for full reproducibility. Run `python eval/run_eval.py` to verify against your own LLM provider.
 
-> **Note:** Current benchmark is 40 cases (37 graded). The harness is designed for regression detection across controlled diffs. See `AI_ROADMAP.md` Phase 6.6 for scope and limitations.
+### Benchmark Snapshot
+
+Frozen reference from the committed full-mode run (`eval/baseline_metrics.json`) —
+**40 cases / 35 retrieval-graded**. This snapshot is the G4 regression baseline.
+
+| Mode | Rewrite | Rerank | Retrieval Hit | MRR | nDCG@3 | Decision Match |
+|------|:---:|:---:|:---:|:---:|:---:|:---:|
+| baseline | off | off | 0.80 | 0.74 | 0.73 | 0.65 |
+| rewrite_only | on | off | 0.83 | 0.74 | 0.72 | 0.63 |
+| rerank_only | off | on | 0.80 | 0.74 | 0.71 | 0.64 |
+| **full** | **on** | **on** | **0.89** | **0.81** | **0.78** | **0.64** |
+
+`full` (rewrite + rerank) is the current reference configuration used by the frozen G4 baseline.
+Metrics are LLM-graded and provider-dependent — reproduce with `python eval/run_eval.py`.
+
+> **Note:** Current benchmark is 40 cases (35 graded). The harness is designed for regression detection across controlled diffs. See `AI_ROADMAP.md` Phase 6.6 for scope and limitations.
 
 ## Development Status
 
