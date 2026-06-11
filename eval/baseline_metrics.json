@@ -1,0 +1,24 @@
+{
+  "description": "Frozen baseline metrics snapshot for G4 regression reference and portfolio reproducibility. Eval-side only, not wired into runtime or scoring. Values copied verbatim from the committed full-mode A/B run.",
+  "source_artifact": "eval/eval_ab_results.json",
+  "source_mode": "full",
+  "benchmark": {
+    "total_cases": 40,
+    "retrieval_graded_cases": 35,
+    "ndcg_k": 3
+  },
+  "g4_tracked_metrics": {
+    "retrieval_hit_rate": 0.886,
+    "top_k_hit_rate": 0.886,
+    "avg_mrr": 0.814,
+    "avg_ndcg_at_k": 0.778,
+    "avg_decision_match": 0.637
+  },
+  "context_metrics": {
+    "anomaly_type_accuracy": 0.75,
+    "avg_source_overlap": 0.943,
+    "avg_retrieval_recall": 0.814,
+    "avg_retrieved_count": 8.18,
+    "avg_reranked_count": 5.75
+  }
+}
