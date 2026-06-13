@@ -151,6 +151,8 @@ Frozen reference from the committed full-mode run (`eval/baseline_metrics.json`)
 `full` (rewrite + rerank) is the current reference configuration used by the frozen G4 baseline.
 Metrics are LLM-graded and provider-dependent — reproduce with `python eval/run_eval.py`.
 
+![A/B benchmark results](docs/images/ab_results.png)
+
 > **Note:** Current benchmark is 40 cases (35 graded). The harness is designed for regression detection across controlled diffs. See `AI_ROADMAP.md` Phase 6.6 for scope and limitations.
 
 ## Development Status
