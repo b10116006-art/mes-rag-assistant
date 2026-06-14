@@ -2,6 +2,8 @@
 
 RAG/LLM-based decision core for semiconductor manufacturing — retrieves domain knowledge and returns structured engineering decisions.
 
+![MES RAG Assistant — retrieval pipeline ablation](docs/images/ab_hero.png)
+
 ## What It Does
 
 Given an anomaly description or engineering question, the system:
