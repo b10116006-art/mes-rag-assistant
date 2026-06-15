@@ -15,11 +15,17 @@
 
 **Phase 6.8:** ✅ Done. Benchmark expanded from 10 → 40 cases; 37 carry `expected_sources` labels.
 
-**Course-driven gap items (planned):** G2 (metadata filter), G4 (eval regression gate), G3 (LLM rewrite), G1 (LoRA fine-tune). Per-item detail in `AI_ROADMAP.md` → "Course-driven gap items". Execution order in `NEXT_STEPS.md`.
+**G2 (metadata filter):** ✅ Implemented on main. `doc_type` tagging + query-class filter in `app.py`.
+
+**G4 (eval regression gate):** ✅ Implemented on main; baseline gate PASS. `eval/run_baseline_check.py` + `eval/baseline_metrics.json`.
+
+**Course-driven gap items:** G2 (metadata filter) and G4 (eval regression gate) ✅ implemented on main (see above); G3 (LLM rewrite) and G1 (LoRA fine-tune) remain planned. Per-item detail in `AI_ROADMAP.md` → "Course-driven gap items". Execution order in `NEXT_STEPS.md`.
 
 **Enterprise readiness track (planned):** ENT-1 (Docker), ENT-2 (API auth + rate limiting), ENT-3 (`/health` + `/metrics`). Per-item detail in `AI_ROADMAP.md` → "Enterprise readiness track".
 
-**Resume-ready Polish Track (Portfolio Packaging) (planned):** Packaging-only items (LICENSE MIT, baseline metrics snapshot, A/B chart, README polish, diagram refresh) for cold email / résumé / outreach. **Not a research phase**; does not replace G2 / G4 / Phase 7B / FastAPI work. Detail in `AI_ROADMAP.md` → "Resume-ready Polish Track (Portfolio Packaging)".
+**Resume-ready Polish Track (Portfolio Packaging) — Completed (Portfolio Packaging):** Shipped packaging-only items: LICENSE (MIT), `baseline_metrics.json`, A/B chart (`docs/images/ab_results.png`), README hero figure (`docs/images/ab_hero.png`) + Highlights, README final polish. **Not a research phase**; does not replace G3 / G1 / Phase 7B / FastAPI work. Detail in `AI_ROADMAP.md` → "Resume-ready Polish Track (Portfolio Packaging)".
+
+**Decision-Layer Track:** Phase 7 strict prompt = HOLD (audit branch preserved); Phase 7B Action Canonicalization = planned / design-ready (`docs/architecture/ADR_007_action_canonicalization.md`). Phase 7 FastAPI serving remains future work.
 
 ## What is validated
 
@@ -41,8 +47,6 @@
 
 - No cross-encoder rerank (token-overlap heuristic only) — tracked as backlog #3
 - Deep retrieval metrics (MRR / nDCG@3) added in Phase 6.7; per-stratum / per-class breakdown still pending
-- No metadata filtering on retrieval — tracked as G2 (IMMEDIATE)
-- No automated regression gate on eval — tracked as G4 (IMMEDIATE)
 - No structured output validation layer (schema is enforced, content is not audited)
 - No formal memory retrieval benchmarking
 - Action matching uses keyword overlap, not semantic similarity

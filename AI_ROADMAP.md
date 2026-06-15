@@ -26,6 +26,8 @@ This index is the single source of truth for phase state. Individual phase secti
 | 6 | Retrieval Quality / Rerank | `rerank_docs()` + `make_rerank_retriever()` + `retrieved_count` / `reranked_count` / `top_sources` |
 | 6.5 | Retrieval Evaluation Metrics | `expected_sources` labels + `retrieval_hit_rate` / `top_k_hit_rate` / `avg_source_overlap` in eval summary |
 | 6.6 | Retrieval A/B Measurement | `eval/eval_ab_results.json` — 4-mode (baseline / rewrite_only / rerank_only / full) × 40 cases |
+| G2 | Metadata Filter (`doc_type`) | `doc_type` tagging + query-class filter in `app.py` |
+| G4 | Eval Baseline Regression Gate | `eval/run_baseline_check.py` + `eval/baseline_metrics.json` (baseline gate PASS) |
 
 ### 🧪 Experimental — held (not merged)
 
@@ -39,7 +41,7 @@ This index is the single source of truth for phase state. Individual phase secti
 - **Course-driven gap items** (G1–G4) — see "Course-driven gap items" section below; scheduled by **dependency**, not by recency
 - **Enterprise readiness track** (ENT-1 → ENT-3) — see "Enterprise readiness track" section below
 - **Phase 7B — Action Canonicalization Layer** — methodology improvement to normalize semantically-equivalent action phrases inside the scorer, before token-overlap matching. Design captured in `docs/architecture/ADR_007_action_canonicalization.md`. See "Decision-Layer Track" section.
-- **Resume-ready Polish Track (Portfolio Packaging)** — packaging-only items (LICENSE, baseline snapshot, A/B chart, README polish, diagram refresh) for outreach. **Not a research phase**; does not replace G2 / G4 / Phase 7B / FastAPI work. See "Resume-ready Polish Track (Portfolio Packaging)" section.
+- **Resume-ready Polish Track (Portfolio Packaging)** — ✅ Completed (Portfolio Packaging). Shipped: LICENSE, baseline snapshot, A/B chart, README hero figure + Highlights, README final polish. **Not a research phase**; does not replace G3 / G1 / Phase 7B / FastAPI work. See "Resume-ready Polish Track (Portfolio Packaging)" section.
 - **Near-term engineering backlog** (see dedicated section) — chunking strategy, embedding selection, cross-encoder rerank, larger benchmark, multimodal RAG
 
 ### 🗺 Long-term roadmap
@@ -326,27 +328,27 @@ This is the concrete work the team is most likely to pick up after Phase 6.6 fin
 
 Net-new items derived from `COURSE_TECH_GAP_ANALYSIS.md` (Apr 2026). They are scheduled by **dependency**, not by recency — see "Dependency-aware execution sequence" below for the full ordering. Each item is sized to the minimal-diff / additive-only discipline and carries explicit upstream blockers so we do not trial multiple changes in parallel and lose attribution.
 
-Items are listed in execution (dependency) order: G2 → G4 → G3 → G1.
+Items are listed in execution (dependency) order: G2 → G4 → G3 → G1. **G2 and G4 are ✅ implemented on main**; remaining: G3 → G1.
 
-### G2 — Metadata filter (`doc_type` tag + Chroma filter)
+### G2 — Metadata filter (`doc_type` tag + Chroma filter) — ✅ DONE (implemented on main)
 
 **What:** Tag every chunk with `doc_type` ∈ {`anomaly`, `sop`, `ai_logic`, `equipment`}. Use the existing `classify_query()` (Phase 3) to set a `where=` filter on Chroma so the retriever only sees chunks of the right type.
 
 **Why:** Today all chunks share one search space. Queries like "ILD 異常處理 SOP" hit anomaly definitions before the actual SOP content. Eval shows ~5 of 40 cases mis-route for this single root cause.
 
-**Dependencies:** None. Independent of Phase 6.6 closeout. **IMMEDIATE.**
+**Status:** ✅ Implemented on main. **Dependencies:** None. Independent of Phase 6.6 closeout.
 
 **Affects:** `rag_data/` (metadata header), `app.py` (Chroma `where=` plumbing). Schema unchanged.
 
 **Acceptance:** ≥3 of the currently-misclassified cases recover their `expected_sources` hit. No regression on previously-passing cases (gated by G4).
 
-### G4 — Eval baseline regression gate
+### G4 — Eval baseline regression gate — ✅ DONE (implemented on main; baseline gate PASS)
 
 **What:** Add `eval/run_baseline_check.py` and `eval/baseline_metrics.json`. Run eval, compare against the committed Phase 6.6 baseline, exit non-zero on regression of any tracked metric beyond a configured tolerance.
 
 **Why:** Phase 6.6 produced one baseline. Without a gate, the next change that lowers `retrieval_hit_rate` by 4 points lands silently. This turns the baseline into a contract.
 
-**Dependencies:** Phase 6.6 closeout (need a committed baseline to gate against — ✅ already done). **IMMEDIATE.**
+**Status:** ✅ Implemented on main; baseline gate PASS. **Dependencies:** Phase 6.6 closeout (✅ already done).
 
 **Affects:** `eval/` only. Runtime path (`app.py`) untouched.
 
@@ -482,7 +484,7 @@ Items listed in execution (dependency) order: ENT-1 → Phase 7 → ENT-2 → EN
 
 ## Resume-ready Polish Track (Portfolio Packaging)
 
-**Status:** 🗺 Planned (short-term polish). **Not a research phase.**
+**Status:** ✅ Completed (Portfolio Packaging). **Not a research phase.**
 
 This track collects low-effort packaging work whose only purpose is to make the system already on `main` legible to a non-runtime audience — cold email, résumé, and professor / lab outreach. It produces **no new capability**: every item is presentation, reproducibility, or licensing around work that already exists.
 
@@ -509,8 +511,8 @@ This sequence is by **dependency**, not by item recency. New ideas wait for thei
 
 ```
 IMMEDIATE  → 1. Phase 6.6 closeout (✅ done)
-             2. G4 — eval baseline regression gate
-             3. G2 — metadata filter
+             2. G4 — eval baseline regression gate (✅ done)
+             3. G2 — metadata filter (✅ done)
              4. Doc reconciliation (PROJECT_STATE.md, NEXT_STEPS.md)
 
 SHORT-TERM → 5. Backlog #4 — expand benchmark to 100+ cases + inter-rater (20%)
