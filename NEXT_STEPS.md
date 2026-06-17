@@ -1,6 +1,6 @@
 # Next Steps
 
-## Active focus (post G2 merge, Phase 7 evaluated)
+## Active focus (post G2 + G4 merge, Phase 7 evaluated)
 
 Phase 7 strict evidence-bound reasoning prompt was tested on branch `phase7-prompt-hardening`. G4 gate PASS, but `decision_match` 0.656 → 0.646 (−0.010). Retrieval metrics flat. **Not a production improvement.** See `AI_ROADMAP.md` → "Decision-Layer Track (Phase 7 / Phase 7B)" and `docs/architecture/ADR_007_action_canonicalization.md`.
 
@@ -23,9 +23,11 @@ Sequenced by **dependency**, not by recency. Per-item detail and acceptance crit
 
 ### IMMEDIATE — finish foundation
 1. **Phase 6.6 closeout** — ✅ done. A/B artifact committed (40 cases × 4 modes) in `eval/eval_ab_results.json`.
-2. **G4 — eval baseline regression gate** — `eval/run_baseline_check.py` + `eval/baseline_metrics.json`. Turns the Phase 6.6 baseline into a contract.
-3. **G2 — metadata filter** — `doc_type` tag on chunks + Chroma `where=` filter via `classify_query()`. Root-cause fix for ~5 misclassified eval cases. No upstream blocker.
-4. **Doc reconciliation** — sync stale facts in `PROJECT_STATE.md` and this file.
+2. **G4 — eval baseline regression gate** — ✅ done; implemented on main, baseline gate PASS. `eval/run_baseline_check.py` + `eval/baseline_metrics.json`. Turns the Phase 6.6 baseline into a contract.
+3. **G2 — metadata filter** — ✅ done; implemented on main. `doc_type` tag on chunks + query-class filter via `classify_query()`. Root-cause fix for ~5 misclassified eval cases.
+4. **Doc reconciliation** — sync stale facts in `PROJECT_STATE.md` and this file. ← only remaining IMMEDIATE item (this PR).
+
+**Next active work (dependency order):** (a) Backlog #4 — expand benchmark to 100+ cases; (b) Phase 7B Action Canonicalization (zero-dependency, design-ready); (c) Phase 7 FastAPI serving, later.
 
 ### SHORT-TERM — measurement floor before any tuning
 5. **Backlog #4** — expand `eval/eval_cases.json` to 100+ cases with `expected_sources` everywhere; inter-rater on a 20% sample (target agreement ≥ 0.8).
